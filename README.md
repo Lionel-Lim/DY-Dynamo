@@ -5,4 +5,4 @@
 https://youtu.be/eFxCkiLTAFc
 
 ### Create Curved Section by splitting alignment
-`Revit` - 2020.2.8, `Dynamo` - 2.3.1\
+`Revit` - 2020.2.8, `Dynamo` - 2.3.1
