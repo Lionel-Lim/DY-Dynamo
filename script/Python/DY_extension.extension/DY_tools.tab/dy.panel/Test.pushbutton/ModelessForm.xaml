@@ -1,47 +1,67 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Viaduct101" Height="700" Width="600" ShowInTaskbar="False" Topmost="True"
+        Title="Viaduct101" SizeToContent="Height" Width="550" ShowInTaskbar="False" Topmost="True"
         WindowStartupLocation="CenterScreen" HorizontalContentAlignment="Center">
-    <StackPanel Margin="20">
-        <Button x:Name="select_button" Content="Select Reference Model" Height="30" Margin="10,10" Click="select_target" ClickMode="Release" />
-        <ComboBox x:Name="Symbols" Text="Select Family Symbol" HorizontalContentAlignment="Center" IsEditable="True" Margin="10,10"/>
-        <Button Content="Update" Click="get_update" Margin="10,10"/>
-        <DataGrid Name="datagrid" Height="100" 
-                  AutoGenerateColumns="False" 
-                  ScrollViewer.CanContentScroll="True" 
-                  ScrollViewer.VerticalScrollBarVisibility="Auto" 
-                  HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Stretch"
-                  ColumnWidth="*"
-                  IsReadOnly="True"
-                  Margin="10,10">
-            <DataGrid.Columns>
-                <DataGridTextColumn Binding="{Binding Alignment}" Header="Alignment"/>
-                <DataGridTextColumn Binding="{Binding Family}" Header="Family"/>
-            </DataGrid.Columns>
-        </DataGrid>
-        <Button x:Name="button_pts" Content="Create Points" Click="Create_Points" Margin="10,10"/>
-        <Button Content="Plot Points" Click="Plot_Points" Margin="10,10"/>
-        <DataGrid Name="datagrid_pts" Height="100" 
-                  AutoGenerateColumns="False" 
-                  ScrollViewer.CanContentScroll="True" 
-                  ScrollViewer.VerticalScrollBarVisibility="Auto" 
-                  HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Stretch"
-                  ColumnWidth="*"
-                  IsReadOnly="True"
-                  Margin="10,10">
-            <DataGrid.Columns>
-                <DataGridTextColumn Binding="{Binding number}" Header="Number"/>
-                <DataGridTextColumn Binding="{Binding ch}" Header="Chainage"/>
-                <DataGridTextColumn Binding="{Binding ptsX}" Header="Point.X"/>
-                <DataGridTextColumn Binding="{Binding ptsY}" Header="Point.Y"/>
-                <DataGridTextColumn Binding="{Binding ptsZ}" Header="Point.Z"/>
-            </DataGrid.Columns>
-        </DataGrid>
-        <Button Content="Execute2" Click="Execution2" Margin="10,10"/>
-        <TextBox x:Name="debug" TextWrapping="Wrap" Height="50"
-                 IsReadOnly="True" VerticalScrollBarVisibility="Visible">
-        </TextBox>
-    </StackPanel>
+    <Border CornerRadius="6" BorderBrush="Gray" BorderThickness="2" Margin="10,10,10,10">
+        <StackPanel Width="500" Margin="10,10,10,10" HorizontalAlignment="Center">
+            <Button x:Name="select_button" Content="Select Reference Model" Height="30" Margin="10,10" Click="select_target" ClickMode="Release" />
+            <ComboBox x:Name="Symbols" Text="Select Family Symbol" HorizontalContentAlignment="Center" IsEditable="True" Margin="10,10"/>
+            <Button Content="Update" Click="get_update" Margin="10,10"/>
+            <DataGrid Name="datagrid" Height="50" 
+                      AutoGenerateColumns="False" CanUserSortColumns="False"
+                      ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto" 
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      ColumnWidth="*" IsReadOnly="True" Margin="10,10">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding Alignment}" Header="Alignment"/>
+                    <DataGridTextColumn Binding="{Binding Family}" Header="Family"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            <Button x:Name="button_pts" Content="Create Points" Click="Create_Points" Margin="10,10"/>
+            <Button Content="Plot Points" Click="Plot_Points" Margin="10,10"/>
+            <DataGrid Name="datagrid_pts" Height="100" Margin="10,10"
+                      AutoGenerateColumns="False" 
+                      ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto" 
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      ColumnWidth="*"
+                      IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding index1}" Header="Index"/>
+                    <DataGridTextColumn Binding="{Binding ch}" Header="Chainage in 3D"/>
+                    <DataGridTextColumn Binding="{Binding ptsX}" Header="Point.X"/>
+                    <DataGridTextColumn Binding="{Binding ptsY}" Header="Point.Y"/>
+                    <DataGridTextColumn Binding="{Binding ptsZ}" Header="Point.Z"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            <WrapPanel Height="30" Margin="10,10">
+                <Button Width="90" Height="30" Content="Select Data"/>
+                <TextBlock Width="280" Height="30" Text="Data Location : " Margin="10,0,10,0"/>
+                <Button Width="90" Height="30" Content="Load Data"/>
+            </WrapPanel>
+            <DataGrid Name="datagrid_pts_set" Height="100" Margin="10,10"
+                      AutoGenerateColumns="False" CanUserSortColumns="False" 
+                      ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto" 
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      ColumnWidth="*"
+                      IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding index2}" Header="Index"/>
+                    <DataGridTextColumn Binding="{Binding group}" Header="Placement Group"/>
+                    <DataGridTextColumn Binding="{Binding pts_set}" Header="Point Set"/>
+                    <DataGridTextColumn Binding="{Binding type}" Header="Type"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            <WrapPanel Height="20" Margin="10,0">
+                <TextBlock Height="20" Width="120" Text="From" TextAlignment="Center" FontSize="15"/>
+                <TextBox x:Name="start" Height="20" Width="100" Text="0" TextAlignment="Center" FontSize="15"/>
+                <TextBlock Height="20" Width="100" Text="To" TextAlignment="Center" FontSize="15"/>
+                <TextBox x:Name="end" Height="20" Width="100" Text="0" TextAlignment="Center" FontSize="15"/>
+            </WrapPanel>
+            <Button Content="Create Instance" Click="Execution2" Margin="10,10"/>
+            <Separator Margin="10,0,10,5"/>
+            <TextBox x:Name="debug" TextWrapping="Wrap" Height="70" Margin="10,0"
+                     IsReadOnly="True" VerticalScrollBarVisibility="Visible">
+            </TextBox>
+        </StackPanel>
+    </Border>
 </Window>

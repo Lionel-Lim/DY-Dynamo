@@ -1,45 +1,51 @@
 #############For Dyanmo only
 import sys
-#rpw_path = IN[0]
+
+# rpw_path = IN[0]
 # Or any location where rpw.zip is stored.
-#sys.path.append(rpw_path)
+# sys.path.append(rpw_path)
 #############
 import clr
-clr.AddReference('System.Windows.Forms')
-clr.AddReference('IronPython.Wpf')
+
+clr.AddReference("System.Windows.Forms")
+clr.AddReference("IronPython.Wpf")
 import math
 
 from pyrevit import script
-xamlfile = script.get_bundle_file('ui.xaml')
+
+xamlfile = script.get_bundle_file("ui.xaml")
 
 from rpw import revit, db, ui, DB, UI
-ObjectType=UI.Selection.ObjectType
+
+ObjectType = UI.Selection.ObjectType
 
 import wpf
 from System import Windows
 
 ###################################################################
 class MyWindow(Windows.Window):
-	def __init__(self):
-		wpf.LoadComponent(self, xamlfile)
-		self.alignment="none"
-	def select_alignment(self, sender, args):
-		self.Visibility=self.Visibility.Collapsed
-		try:
-			#global alignment
-			picked=ui.selection.PickObject(ObjectType.Element)
-			alignment=revit.doc.GetElement(picked)
-			self.alignment_button.Content=alignment.Name
-		except:
-			self.alignment_button.Content="Please Restart The App"
-		self.alignment=alignment
-		self.Visibility=self.Visibility.Visible
+    def __init__(self):
+        wpf.LoadComponent(self, xamlfile)
+        self.alignment = "none"
 
-win=MyWindow()
+    def select_alignment(self, sender, args):
+        self.Visibility = self.Visibility.Collapsed
+        try:
+            # global alignment
+            picked = ui.selection.PickObject(ObjectType.Element)
+            alignment = revit.doc.GetElement(picked)
+            self.alignment_button.Content = alignment.Name
+        except:
+            self.alignment_button.Content = "Please Restart The App"
+        self.alignment = alignment
+        self.Visibility = self.Visibility.Visible
+
+
+win = MyWindow()
 win.ShowDialog()
-name=win.alignment.Name
-UI.TaskDialog.Show("Hello","this {}".format(name))
-#alignment=MyWindow.alignment
+name = win.alignment.Name
+UI.TaskDialog.Show("Hello", "this {}".format(name))
+# alignment=MyWindow.alignment
 
 # #Select Alignment model and get sub elements in alignment instance
 # #def pickobject():
@@ -86,7 +92,7 @@ UI.TaskDialog.Show("Hello","this {}".format(name))
 # #Find Adaptive Family Symbol
 # symbolName='N111_Viaduct_DoubleCell_General_R20' #User Input
 # collect=db.Collector(of_category='OST_GenericModel')
-# collect=db.Collector(of_class='FamilySymbol')
+# collect=db.Collector(of_class='FamilySymbol', of_category='OST_GenericModel')
 # collect_list=collect.get_elements()
 # for item in collect_list:
 # 		if symbolName in item.name:
@@ -121,14 +127,14 @@ UI.TaskDialog.Show("Hello","this {}".format(name))
 # 		#Set adaptive point elevation and placement plane to be perpendicular to the alignment
 # 		for adaptive_pt,newpt in zip(temp,pts):
 # 			adaptive_pt.SetPointElementReference(newpt)
-		
+
 # 		#############for debug purpose only
 # 		if(i<10):
 # 			i=i+1
 # 		else:
 # 			break
 # 		#############
-		
+
 # #############For Dyanmo only
 # #OUT=e
 # #############
