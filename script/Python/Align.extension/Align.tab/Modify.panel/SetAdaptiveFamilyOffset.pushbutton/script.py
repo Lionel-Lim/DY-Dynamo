@@ -2,7 +2,7 @@
 # coding: utf8
 
 __doc__ = """Set Adaptive Point on Floor Reference."""
-__title__ = "SetElevation"
+__title__ = "Set Adaptive Family Offset"
 __author__ = "DY Lim"
 
 import clr

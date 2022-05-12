@@ -7,7 +7,7 @@ from rpw.exceptions import RevitExceptions
 from pyrevit.forms import WPFWindow
 from System.Collections.ObjectModel import ObservableCollection
 
-__doc__ = "Test001"
+__doc__ = "Create Civil Model Along an Alignment"
 __title__ = "Viaduct Modeling"
 __author__ = "DY Lim"
 __persistentengine__ = True
@@ -257,7 +257,7 @@ class ModelessForm(WPFWindow):
 
 
 # Let's launch our beautiful and useful form !
-modeless_form = ModelessForm("ModelessForm.xaml")
+modeless_form = ModelessForm("ui.xaml")
 if False:
     a = select_element()
     b = set_geometry(a)
