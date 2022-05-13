@@ -68,8 +68,41 @@
                     <Button Content="Clear Row" Grid.Row="1" Click="clearRow" Width="100" HorizontalAlignment="Left" Margin="10"/>
                     <Button Content="Remove Row" Grid.Row="1" Click="removeRow" Width="100" HorizontalAlignment="Left" Margin="10"/>
                 </StackPanel>
-                <TextBox x:Name="debug" Grid.Row="2" TextWrapping="Wrap" Height="70" Margin="10,0"
+                <TextBox x:Name="debug" Grid.Row="2" Grid.ColumnSpan="1" TextWrapping="Wrap" Height="150" Margin="10,0"
                          IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+
+                <Grid Grid.Row="1" Grid.RowSpan="2"
+                      Grid.Column="1" Grid.ColumnSpan="2"
+                      Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.4*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Curve Type" VerticalAlignment="Center" 
+                               Grid.Column="0" Grid.Row="0"/>
+                    <TextBlock x:Name="input1" Text="PVI Station Start" VerticalAlignment="Center" 
+                               Grid.Column="0" Grid.Row="1"/>
+                    <TextBlock x:Name="input2" Text="PVI Station End" VerticalAlignment="Center" 
+                               Grid.Column="0" Grid.Row="2"/>
+                    <TextBlock x:Name="input3" Text="Line Slope" VerticalAlignment="Center" 
+                               Grid.Column="0" Grid.Row="3"/>
+
+                    <ComboBox x:Name="input_curveType" Text="Curve Type" VerticalAlignment="Center" 
+                               Grid.Column="1" Grid.Row="0" SelectionChanged="valueUpdated" SelectedIndex="0"/>
+                    <TextBox x:Name="input1_1" VerticalAlignment="Center" 
+                               Grid.Column="1" Grid.Row="1" TextChanged="input1Updated"/>
+                    <TextBox x:Name="input2_1" VerticalAlignment="Center" 
+                               Grid.Column="1" Grid.Row="2"/>
+                    <TextBox x:Name="input3_1" VerticalAlignment="Center" 
+                               Grid.Column="1" Grid.Row="3"/>
+                </Grid>
 
             </Grid>
         </TabItem>

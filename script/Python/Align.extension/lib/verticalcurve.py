@@ -16,7 +16,7 @@ To receive the latest information, please visit https://github.com/Lionel-Lim.
 from itertools import accumulate
 
 
-class vertical_curve:
+class VerticalCurve:
     def __init__(self, stationrange):
         (
             self._CurveType,

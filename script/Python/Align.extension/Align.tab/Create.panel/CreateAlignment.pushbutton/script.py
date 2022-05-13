@@ -7,6 +7,7 @@ from rpw.exceptions import RevitExceptions
 from pyrevit.forms import WPFWindow
 
 from event import CustomizableEvent
+# from verticalcurve import VerticalCurve
 
 __doc__ = "Alignment Manager"
 __title__ = "Create Alignment Model"
@@ -53,6 +54,9 @@ class form_window(WPFWindow):
         self.curveType = ObservableCollection[object]()
         [self.curveType.Add(ct) for ct in curveType]
         self.curveTypeBox.ItemsSource = self.curveType
+
+        self.input_curveType.ItemsSource = self.curveType
+
         self.debug.Text = "Initializing Success\nWaiting Task..."
 
     def addrow(self, sender, e):
@@ -80,6 +84,26 @@ class form_window(WPFWindow):
         else:
             self.VAContents.RemoveAt(index)
             debug(self, "{} Row Removed".format(index))
+    
+    def valueUpdated(self, sender, e):
+        index = self.input_curveType.SelectedIndex
+        if index == 0:
+            self.input1.Text = "PVI Station Start"
+            self.input2.Text = "PVI Station End"
+            self.input3.Text = "Line Slope"
+        else:
+            self.input1.Text = "PVI Station"
+            self.input2.Text = "PVI Elevation"
+            self.input3.Text = "Curve Length"            
+        debug(self, "{}".format(index))
+
+    def input1Updated(self, sender, e):
+        value1_count = len(self.input1_1.Text)
+        if value1_count > 0:
+            self.input3_1.IsReadOnly = True
+        else:
+            self.input3_1.IsReadOnly = False
+        debug(self, "{}".format(value1_count))
 
 
 form = form_window("ui.xaml")
