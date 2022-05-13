@@ -1,5 +1,78 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Viaduct101" SizeToContent="Height" Width="550" ShowInTaskbar="False" Topmost="True"
+        Title="Alignment Manager" SizeToContent="Height" Width="800" ShowInTaskbar="True" Topmost="True"
         WindowStartupLocation="CenterScreen" HorizontalContentAlignment="Center">
+    <TabControl>
+        <TabItem>
+            <TabItem.Header>
+                <TextBlock Text="Horizontal Alignment"/>
+            </TabItem.Header>
+            <Grid Height="400">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="2*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <DataGrid x:Name="HorizontalCurveTable"
+                          Grid.Row="0" Grid.ColumnSpan="2"
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          AutoGenerateColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Index"/>
+                        <DataGridTextColumn Header="Curve Type"/>
+                        <DataGridTextColumn Header="Length"/>
+                        <DataGridTextColumn Header="Radius"/>
+                        <DataGridTextColumn Header="Start Station"/>
+                        <DataGridTextColumn Header="End Station"/>
+                        <DataGridTextColumn Header="Direction"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </TabItem>
+        <TabItem>
+            <TabItem.Header>
+                <TextBlock Text="Vertical Alignment"/>
+            </TabItem.Header>
+            <Grid Height="400">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="0.4*"/>
+                    <RowDefinition Height="2*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <DataGrid x:Name="VerticalCurveTable"
+                          Grid.Row="0" ColumnWidth="*" Grid.ColumnSpan="2"
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          AutoGenerateColumns="False" IsReadOnly="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Index" Binding="{Binding index}" IsReadOnly="True" />
+                        <DataGridTextColumn Header="PVI Station" Binding="{Binding pviStation}"/>
+                        <DataGridTextColumn Header="PVI Elevation" Binding="{Binding pviElevation}"/>
+                        <DataGridTextColumn Header="Grade" Binding="{Binding grade}"/>
+                        <DataGridComboBoxColumn x:Name="curveTypeBox" Header="Curve Type"
+                                                SelectedItemBinding="{Binding curveType}"/>
+                        <DataGridTextColumn Header="Curve Length" Binding="{Binding _CurveLength}"/>
+                        <DataGridTextColumn Header="Value K" Binding="{Binding _K}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="Add Row" Grid.Row="1" Click="addrow" Width="100" HorizontalAlignment="Left" Margin="10"/>
+                    <Button Content="Clear Row" Grid.Row="1" Click="clearRow" Width="100" HorizontalAlignment="Left" Margin="10"/>
+                    <Button Content="Remove Row" Grid.Row="1" Click="removeRow" Width="100" HorizontalAlignment="Left" Margin="10"/>
+                </StackPanel>
+                <TextBox x:Name="debug" Grid.Row="2" TextWrapping="Wrap" Height="70" Margin="10,0"
+                         IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+
+            </Grid>
+        </TabItem>
+    </TabControl>
 </Window>
+    
