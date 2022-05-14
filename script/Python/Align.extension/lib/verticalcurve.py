@@ -13,7 +13,6 @@ GNU General Public License for more details.
 To receive the latest information, please visit https://github.com/Lionel-Lim.
 """
 # coding: utf8
-from itertools import accumulate
 
 
 class VerticalCurve:
@@ -28,6 +27,12 @@ class VerticalCurve:
         ) = ([], [], [], [], [], [])
         self._stationStart = stationrange[0]
         self._stationEnd = stationrange[1]
+
+    def accumulate(list):
+        total = 0
+        for x in list:
+            total += x
+            yield total
 
     def isValidSlope(self, slope):
         for index, sl in enumerate(slope):
@@ -93,7 +98,7 @@ class VerticalCurve:
     def RangeTypeAtStation(self, stations, curvelength, accumulationrequired=True):
         group = []
         if accumulationrequired:
-            accumulatedLength = list(accumulate(curvelength))
+            accumulatedLength = list(self.accumulate(curvelength))
             accumulatedLength.insert(0, 0)
             accumulatedStation = [
                 length + self._stationStart for length in accumulatedLength
@@ -110,7 +115,7 @@ class VerticalCurve:
         self, group, stations, curvetype, curvelength, pvielevation, slope
     ):
         result = []
-        accumulatedLength = list(accumulate(curvelength))
+        accumulatedLength = list(self.accumulate(curvelength))
         accumulatedLength.insert(0, 0)
         accumulatedStation = [
             length + self._stationStart for length in accumulatedLength
