@@ -24,12 +24,33 @@ __author__ = "DY Lim"
 __persistentengine__ = True
 
 
+curveType = ["Line", "Curve"]
+
+customizable_event = CustomizableEvent()
+
+selectCond= True
+_drawingRef=None
+
 def debug(self, line):
     self.debug.Text = "{}\n{}".format(self.debug.Text, line)
     self.debug.ScrollToEnd()
 
+def debugHorizontal(self, line):
+    self.debugHorizontal.Text = "{}\n{}".format(self.debugHorizontal.Text, line)
+    self.debugHorizontal.ScrollToEnd()
 
-curveType = ["Line", "Curve"]
+def toFloat(input):
+    try:
+        return float(input)
+    except:
+        return None
+
+def select_element():
+    global _drawingRef
+    with db.Transaction("selection"):
+        ref = ui.Pick.pick_element("Select Reference").ElementId
+        _drawingRef = revit.doc.GetElement(ref)
+
 
 
 class verticalAlignmentFormat:
@@ -321,8 +342,95 @@ class form_window(WPFWindow):
         if ss != "" and se != "" and float(se) > float(ss):
             self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
             debug(self, "{}is loaded".format(self.VC))
+            
+            pviElevation = [toFloat(g.pviElevation) for g in self.VAContents]
+            curveType = [g._CurveType for g in self.VAContents]
+            grade = [toFloat(g.grade) for g in self.VAContents]
+            curveLength = [toFloat(g._CurveLength) for g in self.VAContents]
+            debug(self, "{} and {}".format(grade, curveLength))
+            pviStation = [toFloat(g.pviStation) for g in self.VAContents]
+            debug(self, "{}".format(pviStation))
+            isValidGrade = self.VC.isValidSlope(grade)
+            self.VC.CalculateLineTypeAndK(curveLength, grade)
+            k = self.VC._K
+            ltype = self.VC._CurveType
+            debug(self, "{} and {}".format(grade, isValidGrade))
+            debug(self, "{} and {}".format(k, ltype))
+            self.VC.CalculateCurveLength(pviStation, curveLength, grade)
+            debug(self, "Dummy")
+            calculatedCurveLength = self.VC._CurveLength
+            debug(self, "{}".format(calculatedCurveLength))
+            # try:
+            for index in range(self.VAContents.Count):
+                self.VAContents[index] = verticalAlignmentFormat(
+                    index,
+                    pviStation[index], 
+                    pviElevation[index],
+                    grade[index],
+                    curveType[index],
+                    calculatedCurveLength[index],
+                    k[index]
+                )
+            
+            # self.VC.RangeTypeAtStation(stations, curvelength, accumulationrequired=True)
+            # except:
+            #     debug(self, "Fail")
         else:
             debug(self, "Check Start and End Stations in General")
+    
+    def selectRef(self, sender, e):
+        # global selectCond
+        global _drawingRef
+        customizable_event.raise_event(select_element)
+        debugHorizontal(self,"slected is {}".format(_drawingRef))
+        try:
+            opt = DB.Options()
+            opt.ComputeReferences = True
+            opt.IncludeNonVisibleObjects = False
+            opt.View = revit.doc.ActiveView
+            geometry = _drawingRef.get_Geometry(opt)
+            debugHorizontal(self,"geometry:{}".format(geometry)) 
+            for elem in geometry:
+                self.objs = elem.GetInstanceGeometry()
+            debugHorizontal(self,"objs:{}".format(self.objs))  
+            self.layers = []
+            for obj in self.objs:
+                styleId = obj.GraphicsStyleId
+                style = revit.doc.GetElement(styleId)
+                try:
+                    self.layers.append(style.GraphicsStyleCategory.Name)
+                except:
+                    self.layers.append(None)
+            self.layers = list(set(self.layers))
+            self.layerList.ItemsSource = self.layers
+            debugHorizontal(self,"layers:{}".format(self.layers))
+        except:
+            debugHorizontal(self,"Fail")
+    
+    def setCurve(self, sender, e):
+        try:
+            index = self.layerList.SelectedIndex
+            debugHorizontal(self,"index{}".format(index))
+            layers = self.layers
+            objs = self.objs
+            selectedCurves = []
+            hash = []
+            for obj in objs:
+                styleId = obj.GraphicsStyleId
+                style = revit.doc.GetElement(styleId)
+                try:
+                    if style.GraphicsStyleCategory.Name == layers[index]:
+                        selectedCurves.append(obj)
+                        hash.append(obj.GetHashCode())
+                except:
+                    False
+            list1, list2 = (list(t) for t in zip(*sorted(zip(hash, selectedCurves))))
+            debugHorizontal(self,"curvenumber:{}".format(selectedCurves))
+            debugHorizontal(self,"sorted:{}".format(list2))
+        except:
+            debugHorizontal(self,"Fail")
+        
+
 
 
 form = form_window("ui.xaml")
