@@ -43,6 +43,8 @@ def set_geometry(alignment):
         alignment_3dcrv = []
         alignment_points = []
         alignment_lines = []
+        alignment_ellipse = []
+        alignment_3dcrv_tangent = []
         opt = DB.Options()
         opt.ComputeReferences = True
         opt.IncludeNonVisibleObjects = False
@@ -59,9 +61,12 @@ def set_geometry(alignment):
                     alignment_points.append(geoObj)
                 if "DB.Line" in geoObj.GetType().ToString():
                     alignment_lines.append(geoObj)
+                if "DB.Ellipse" in geoObj.GetType().ToString():
+                    alignment_ellipse.append(geoObj)
         # Process incoming information from alignment model
         # All tangent vector on 3D Alignment
-        alignment_3dcrv_tangent = alignment_3dcrv[0].Tangents
+        for ellipse in alignment_ellipse:
+            alignment_3dcrv_tangent.append(ellipse.XDirection)
         _HermiteCrv = alignment_3dcrv[0]
         # Extract line direction from inner to outer and coordinate of points
         alignment_lines_dir = []

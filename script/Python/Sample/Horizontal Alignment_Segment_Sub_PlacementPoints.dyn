@@ -2,7 +2,7 @@
   "Uuid": "93c463b1-901a-45c3-a540-5d977611f582",
   "IsCustomNode": false,
   "Description": null,
-  "Name": "Horizontal Alignment_SubFamily",
+  "Name": "Horizontal Alignment_Segment_Sub_PlacementPoints",
   "ElementResolver": {
     "ResolutionMap": {
       "List": {
@@ -16,8 +16,8 @@
   "Nodes": [
     {
       "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
-      "HintPath": "D:\\Downloads\\Horizontal Alignment.xlsx",
-      "InputValue": "D:\\Downloads\\Horizontal Alignment.xlsx",
+      "HintPath": "C:\\Users\\dlagu\\OneDrive\\문서\\GitHub\\DY-Dynamo\\script\\Python\\Sample\\Family.xlsx",
+      "InputValue": ".\\Family.xlsx",
       "NodeType": "ExtensionNode",
       "Id": "eaf56a6d1c9e409ebac9c4895e75debd",
       "Inputs": [],
@@ -715,7 +715,7 @@
       "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
       "NodeType": "ExtensionNode",
       "InstanceId": [
-        "85a6e2dc-691d-4c96-977d-849f297610e8-000646ce"
+        "de463501-a0f5-4fef-8943-9d91cf38b47c-00001ff5"
       ],
       "Id": "1344f08b3eb94fa69669b72811e2d927",
       "Inputs": [],
@@ -1146,11 +1146,11 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "0..cnt;",
+      "Code": "0..cnt-1;",
       "Id": "1cc5ec8da9a14fea8c7b0930516da760",
       "Inputs": [
         {
-          "Id": "5d19a25e61d341cc8d40f9d0ad67373c",
+          "Id": "2e5ef94592e6488babba99f138b45b18",
           "Name": "cnt",
           "Description": "cnt",
           "UsingDefaultValue": false,
@@ -1161,7 +1161,7 @@
       ],
       "Outputs": [
         {
-          "Id": "73fde3e75e8543deba1c3b5f190d3250",
+          "Id": "e61fedab01754d478aec2ddfc23052d2",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -1249,35 +1249,14 @@
       "Description": "Write data to a Microsoft Excel spreadsheet. Data is written by row with sublists to be written in successive rows. Rows and columns are zero-indexed; for example, the value in the data list at [0,0] will be written to cell A1. Null values and empty lists are written to Excel as empty cells. This node requires Microsoft Excel to be installed.\n\nData.ExportExcel (filePath: string, sheetName: string, startRow: int, startCol: int, data: var[][], overWrite: bool = false): var[][]"
     },
     {
-      "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
-      "HintPath": "D:\\Downloads\\Horizontal Alignment.xlsx",
-      "InputValue": ".\\Horizontal Alignment.xlsx",
-      "NodeType": "ExtensionNode",
-      "Id": "c18708c32e0c4f9fb4a26232b7806fc9",
-      "Inputs": [],
-      "Outputs": [
-        {
-          "Id": "572c2d515cb548d4b1afa579298398e8",
-          "Name": "",
-          "Description": "Filename",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Allows you to select a file on the system to get its filename"
-    },
-    {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "\"PlacementPoint\";\n0;",
+      "Code": "\"General\";\n0;",
       "Id": "a87edeeab96040499a33e9c91a2ff6f1",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "154089d6344549529a36e054512e6db7",
+          "Id": "e1aeed06b6dc4104b63633cb9d8d4ea8",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -1286,7 +1265,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "8246e76166b948899b58f7a700e83f88",
+          "Id": "ed0ad8d4a54c4b2e9aad719d2a96ef24",
           "Name": "",
           "Description": "Value of expression at line 2",
           "UsingDefaultValue": false,
@@ -1340,12 +1319,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "\"SubPoint\";\n\"Distance to Alignment\";",
+      "Code": "\"SubPoint\";\n\"PlacementPoint\";",
       "Id": "d00b3fa0e4eb4f7fb2ae51ff310c860a",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "fc507d168b674a3bb189a3da672a0720",
+          "Id": "c5256c85d12d41a184250723cea5316d",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -1354,7 +1333,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "8590f8c73a3943d68ae014fe11f3994c",
+          "Id": "90a23990c1ed4107bdc31eafee39dbad",
           "Name": "",
           "Description": "Value of expression at line 2",
           "UsingDefaultValue": false,
@@ -1480,6 +1459,11 @@
       "Start": "fcc6f55c746f4dde890da97b4d5d8551",
       "End": "134f25cfa29c480eb685eb1900a890a3",
       "Id": "f455989ae8044790a20f4ec9b6997936"
+    },
+    {
+      "Start": "fcc6f55c746f4dde890da97b4d5d8551",
+      "End": "95aa37cbab604b6c8afdbdb5df33cb56",
+      "Id": "00a3794ec56745da8aa295c185dbf940"
     },
     {
       "Start": "5a7ed799c59147fd9ba2f2b42f130157",
@@ -1678,33 +1662,28 @@
     },
     {
       "Start": "95507f838d4540d4a3c8040fb90d4def",
-      "End": "5d19a25e61d341cc8d40f9d0ad67373c",
-      "Id": "e15c14c79dfa44e5b71ca9f9629b6421"
+      "End": "2e5ef94592e6488babba99f138b45b18",
+      "Id": "c9951ea29f9d4d26b55cf710cea67821"
     },
     {
-      "Start": "73fde3e75e8543deba1c3b5f190d3250",
+      "Start": "e61fedab01754d478aec2ddfc23052d2",
       "End": "2f6a54b4ced041c4927052f882aad8d4",
-      "Id": "8b3bc7ef21b74df3be5b25792e0c356e"
+      "Id": "f98262382bfa46388f5a59b9e6541624"
     },
     {
-      "Start": "572c2d515cb548d4b1afa579298398e8",
-      "End": "95aa37cbab604b6c8afdbdb5df33cb56",
-      "Id": "16eaf77745144b6181f6eac63f78b612"
-    },
-    {
-      "Start": "154089d6344549529a36e054512e6db7",
+      "Start": "e1aeed06b6dc4104b63633cb9d8d4ea8",
       "End": "6fc8408665c7401cb1214199f685e5d3",
-      "Id": "311a6ac5f01f4f43b6c7b413e6b37ac1"
+      "Id": "ee0833ab429d4cab8dd6a4d44a58c04c"
     },
     {
-      "Start": "8246e76166b948899b58f7a700e83f88",
+      "Start": "ed0ad8d4a54c4b2e9aad719d2a96ef24",
       "End": "ef119fe07e5e40f3a0f6c5657466e8ab",
-      "Id": "8eed8cff96cc446286467a0d6cada9dd"
+      "Id": "c7b82f6d544e4889a5ebf36e587a5575"
     },
     {
-      "Start": "8246e76166b948899b58f7a700e83f88",
+      "Start": "ed0ad8d4a54c4b2e9aad719d2a96ef24",
       "End": "38458bb047d84342984e38b73b81025b",
-      "Id": "edf53a9aecfa41349de8d3c023e72a43"
+      "Id": "0ce415229a774a2e9e9ca70655794c42"
     },
     {
       "Start": "d4ef6ece79f44fdd8e4cf197fa72ac4e",
@@ -1712,14 +1691,14 @@
       "Id": "28f2e38d8edf471bb35e86fe5b9a080d"
     },
     {
-      "Start": "fc507d168b674a3bb189a3da672a0720",
+      "Start": "c5256c85d12d41a184250723cea5316d",
       "End": "842aa6bf6fe5475c82ef1e9cb37b1b39",
-      "Id": "f55541d39a294200b5f7111ef8980c19"
+      "Id": "ec0b7da0577d40a296b8b5e6f8fea207"
     },
     {
-      "Start": "8590f8c73a3943d68ae014fe11f3994c",
+      "Start": "90a23990c1ed4107bdc31eafee39dbad",
       "End": "4dd34c4deae142c9ae509f7c68948acc",
-      "Id": "84567ea697124e1e886ed4e941b98c15"
+      "Id": "4bff09fe99ba4841b81d3b24a8898bcf"
     },
     {
       "Start": "96ff619f4f70423286681f2526b12ea4",
@@ -1811,8 +1790,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": -15.111864016778782,
-        "Y": 343.55143021000151
+        "X": -20.964580133123263,
+        "Y": 342.57597752394406
       },
       {
         "ShowGeometry": true,
@@ -1946,7 +1925,7 @@
       },
       {
         "ShowGeometry": true,
-        "Name": "String",
+        "Name": "Placement Point Layer",
         "Id": "33fa5906554e4fc9b4330380bdd46a65",
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
@@ -2096,16 +2075,6 @@
       },
       {
         "ShowGeometry": true,
-        "Name": "File Path",
-        "Id": "c18708c32e0c4f9fb4a26232b7806fc9",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 3757.2459197098688,
-        "Y": 578.872646899434
-      },
-      {
-        "ShowGeometry": true,
         "Name": "Code Block",
         "Id": "a87edeeab96040499a33e9c91a2ff6f1",
         "IsSetAsInput": false,
@@ -2166,8 +2135,8 @@
       }
     ],
     "Annotations": [],
-    "X": -120.60918725725423,
-    "Y": -127.50634970601538,
-    "Zoom": 0.58357618404388634
+    "X": 476.98400683110049,
+    "Y": -146.92447229331287,
+    "Zoom": 0.89003114654688187
   }
 }
