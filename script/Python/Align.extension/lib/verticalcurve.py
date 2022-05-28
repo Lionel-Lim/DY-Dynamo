@@ -92,7 +92,7 @@ class VerticalCurve:
                 else:
                     self._CurveLength.append(
                         (pvistation[index + 1] - (curvelength[index + 1] / 2))
-                        - (pvistation[index - 1] + (curvelength[index + 1] / 2))
+                        - (pvistation[index - 1] + (curvelength[index - 1] / 2))
                     )
 
     def RangeTypeAtStation(self, stations, curvelength, accumulationrequired=True):
@@ -147,7 +147,7 @@ class VerticalCurve:
                 # This Line is not last one.
                 elif g < max(group):
                     g1 = slope[g] * 0.01
-                    g1Elevation = pvielevation[g - 1] - (g1 * (curvelength[g - 1] / 2))
+                    g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))
                     xDist = accumulatedStation[g + 1] - st
                     yDist = g1Elevation - (g1 * xDist)
                     result.append(yDist)
