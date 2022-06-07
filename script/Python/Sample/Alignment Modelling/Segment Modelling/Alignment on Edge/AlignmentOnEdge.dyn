@@ -85,30 +85,10 @@
       "Description": "Convert curves from a CAD link or import by layer name. Curves are organised into sublists by layer. Enter LineStyle names to map to each layer during conversion.\r\rThe node is optimised to convert curve types that typically fail when using Dynamo Element.Curves node or Revit Explode.\r\rVisit bimorph.com/bimorph-nodes for support.\n\nCAD.CurvesFromCADLayers (importInstance: Element, layerNames: string[] = null, createModelCurves: bool = false, lineStyleMap: string[] = null): var[]..[]"
     },
     {
-      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
-      "NodeType": "CodeBlockNode",
-      "Code": "\"C-_NBTUN---_E-\";",
-      "Id": "d2017276b42a40fcbaca58a85cbe6626",
-      "Inputs": [],
-      "Outputs": [
-        {
-          "Id": "890eb2dd5e824db09c5b05b21683245d",
-          "Name": "",
-          "Description": "Value of expression at line 1",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Allows for DesignScript code to be authored directly"
-    },
-    {
       "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
       "NodeType": "ExtensionNode",
       "InstanceId": [
-        "a3ca115c-8512-4e6c-bbf9-d01a7b4cb598-00001df4"
+        "c5f00a81-4e74-467c-8587-7ce7748acd86-00005597"
       ],
       "Id": "2979c88b0023434c8b2e64434ab171e7",
       "Inputs": [],
@@ -270,39 +250,10 @@
       "Description": "Convert curves from a CAD link or import by layer name. Curves are organised into sublists by layer. Enter LineStyle names to map to each layer during conversion.\r\rThe node is optimised to convert curve types that typically fail when using Dynamo Element.Curves node or Revit Explode.\r\rVisit bimorph.com/bimorph-nodes for support.\n\nCAD.CurvesFromCADLayers (importInstance: Element, layerNames: string[] = null, createModelCurves: bool = false, lineStyleMap: string[] = null): var[]..[]"
     },
     {
-      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
-      "NodeType": "CodeBlockNode",
-      "Code": "\"OuterEdge\";\n\"InnerEdge\";",
-      "Id": "8aa6bed8ff4b48268bd21453e6314261",
-      "Inputs": [],
-      "Outputs": [
-        {
-          "Id": "8b36d45010404468a2fd971f7e8a57c0",
-          "Name": "",
-          "Description": "Value of expression at line 1",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        },
-        {
-          "Id": "681c3c98b80f4375912b23889193760e",
-          "Name": "",
-          "Description": "Value of expression at line 2",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Allows for DesignScript code to be authored directly"
-    },
-    {
       "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
       "NodeType": "ExtensionNode",
       "InstanceId": [
-        "a3ca115c-8512-4e6c-bbf9-d01a7b4cb598-00002a42"
+        "c5f00a81-4e74-467c-8587-7ce7748acd86-000057be"
       ],
       "Id": "fde48e44292343948829c4b390e1c9dd",
       "Inputs": [],
@@ -2699,8 +2650,8 @@
     },
     {
       "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
-      "HintPath": "Z:\\OneDrive - TAESUNG SNI (Paid)\\01_Working Model\\04_TRF\\02_Sub Item\\00_Alignment\\00_Data\\NSC_NB_Alignment_ALT1.xlsx",
-      "InputValue": "Z:\\OneDrive - TAESUNG SNI (Paid)\\01_Working Model\\04_TRF\\02_Sub Item\\00_Alignment\\00_Data\\NSC_NB_Alignment_ALT1.xlsx",
+      "HintPath": "Z:\\OneDrive - TAESUNG SNI (Paid)\\01_Working Model\\04_TRF\\02_Sub Item\\00_Alignment\\00_Data\\MCG4_NB_Alignment - Proposed Alt5.xlsx",
+      "InputValue": "Z:\\OneDrive - TAESUNG SNI (Paid)\\01_Working Model\\04_TRF\\02_Sub Item\\00_Alignment\\00_Data\\MCG4_NB_Alignment - Proposed Alt5.xlsx",
       "NodeType": "ExtensionNode",
       "Id": "ba70d8bbb3984fa1871110632ee5a25f",
       "Inputs": [],
@@ -3883,6 +3834,66 @@
       ],
       "Replication": "Disabled",
       "Description": "Allows for DesignScript code to be authored directly"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "MCG4_NB",
+      "Id": "12d52a42dbab482aa976f68011dc3207",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "570b50766b6348c8b613e89203078a96",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "MCG4_NB_Inner",
+      "Id": "a10bb429c219473fb5b9b8e26bc3a354",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1176a32f69b9450ea797b3ed954c088c",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "MCG4_NB_Outer",
+      "Id": "80c8a3b061ce4952b97f5916b8cf7294",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "75ed3daf1c5b4a38936cfcad40638ab5",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
     }
   ],
   "Connectors": [
@@ -3890,11 +3901,6 @@
       "Start": "ebf6f5f2eabf47eb868b4c8526a85305",
       "End": "7fb21131d76e4926a40997ca3c5ae1bb",
       "Id": "3eee71ec6bba42279e02d90c54ace3e0"
-    },
-    {
-      "Start": "890eb2dd5e824db09c5b05b21683245d",
-      "End": "9e4da6b8bc3c491b92505ff7a63df379",
-      "Id": "7a3c75e687164b0d9a91820e665e012d"
     },
     {
       "Start": "8b70d6f053744a9daff3c6651160cb13",
@@ -3920,16 +3926,6 @@
       "Start": "3fb48d71ff3644dab9bcb29ca954d323",
       "End": "e771c282422f4acf9e06cec623c36962",
       "Id": "8288f4de3be74d99968d3045080db70e"
-    },
-    {
-      "Start": "8b36d45010404468a2fd971f7e8a57c0",
-      "End": "5466b7b0b34846849909d4f4d9eaef2f",
-      "Id": "843ef6654124497da6e4b3ecdcc295cd"
-    },
-    {
-      "Start": "681c3c98b80f4375912b23889193760e",
-      "End": "0c332d1f8ba2437fb8fef3fb164fbbcf",
-      "Id": "da435c04307041818320280ad55505ec"
     },
     {
       "Start": "1b2fa53a2dd54024a7588700e36dda05",
@@ -4650,6 +4646,21 @@
       "Start": "142d77e2f5a84f8e800678cbfb485de5",
       "End": "3aaadec6971e448b98f35a7fa26fbd15",
       "Id": "0a8c66544bce41ef9bb312b69fe41863"
+    },
+    {
+      "Start": "570b50766b6348c8b613e89203078a96",
+      "End": "9e4da6b8bc3c491b92505ff7a63df379",
+      "Id": "5a83d1561b25449090a2f632906d2fff"
+    },
+    {
+      "Start": "1176a32f69b9450ea797b3ed954c088c",
+      "End": "0c332d1f8ba2437fb8fef3fb164fbbcf",
+      "Id": "378be5fa92ff4ed48f5591d4e019fe38"
+    },
+    {
+      "Start": "75ed3daf1c5b4a38936cfcad40638ab5",
+      "End": "5466b7b0b34846849909d4f4d9eaef2f",
+      "Id": "aa8bbece128f4a66b391e0708f9f47d7"
     }
   ],
   "Dependencies": [
@@ -4686,7 +4697,7 @@
       "ScaleFactor": 100.0,
       "HasRunWithoutCrash": true,
       "IsVisibleInDynamoLibrary": true,
-      "Version": "2.3.1.11775",
+      "Version": "2.3.2.15696",
       "RunType": "Manual",
       "RunPeriod": "1000"
     },
@@ -4712,16 +4723,6 @@
         "Excluded": false,
         "X": 582.0,
         "Y": 250.0
-      },
-      {
-        "ShowGeometry": false,
-        "Name": "Code Block",
-        "Id": "d2017276b42a40fcbaca58a85cbe6626",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 275.0,
-        "Y": 275.0
       },
       {
         "ShowGeometry": false,
@@ -4762,16 +4763,6 @@
         "Excluded": false,
         "X": 627.22633322344609,
         "Y": 591.40665031368007
-      },
-      {
-        "ShowGeometry": false,
-        "Name": "Code Block",
-        "Id": "8aa6bed8ff4b48268bd21453e6314261",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 330.18498498272129,
-        "Y": 718.10146670176027
       },
       {
         "ShowGeometry": false,
@@ -5440,8 +5431,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 106.1618179580708,
-        "Y": -54.962088779355838
+        "X": -16.832862861182832,
+        "Y": -109.03733638092424
       },
       {
         "ShowGeometry": true,
@@ -5525,7 +5516,7 @@
       },
       {
         "ShowGeometry": true,
-        "Name": "Replace to new station",
+        "Name": "ReplaceAndAddStation",
         "Id": "de953fb685cc4b6a81e75328e2ff9295",
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
@@ -5752,11 +5743,41 @@
         "Excluded": false,
         "X": 11929.0,
         "Y": -249.0
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String",
+        "Id": "12d52a42dbab482aa976f68011dc3207",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 325.41297654002312,
+        "Y": 294.38079981157887
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String",
+        "Id": "a10bb429c219473fb5b9b8e26bc3a354",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 332.9190743030731,
+        "Y": 794.21848022016115
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String",
+        "Id": "80c8a3b061ce4952b97f5916b8cf7294",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 337.88140836702485,
+        "Y": 716.05932633931934
       }
     ],
     "Annotations": [],
-    "X": 65.133766320225959,
-    "Y": -79.177665786227578,
-    "Zoom": 0.6999436812328097
+    "X": -969.76103710665711,
+    "Y": 415.28230219573868,
+    "Zoom": 0.49330083853516588
   }
 }

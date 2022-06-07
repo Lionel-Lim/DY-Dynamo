@@ -1,6 +1,8 @@
+################PYREVIT PROPERTY##########################
 __doc__ = "Set location of an object to a target category"
 __title__ = "Set Object Location"
 __author__ = "DY Lim"
+################PYREVIT PROPERTY##########################
 
 import clr, System, sys
 clr.AddReference('revitAPI')
@@ -15,6 +17,7 @@ uidoc = __revit__.ActiveUIDocument
 currentview=doc.ActiveView
 builtInCategory_List = System.Enum.GetValues(BuiltInCategory)
 
+#Convert Object to List[Object]
 def tolist(input):
     try:
         input.Count
@@ -22,14 +25,17 @@ def tolist(input):
     except:
         return [input]
 
+#Revit Popup Message
 def message(string):
     dialog = TaskDialog('General Message')
     dialog.MainInstruction = string
     dialog.Show()
 
+#Convert Revit Internal Unit(ft, inch) to Parameter Display Unit
 def convertUnit(value, displayunittype):
     UnitUtils.ConvertFromInternalUnits(value, displayunittype)
 
+#Get Built In Category of an input object
 def getBuiltInCategory(element):
     element_builtInCategory = []
     for elem in element:
@@ -41,20 +47,22 @@ def getBuiltInCategory(element):
                 element_builtInCategory.append(bic)
     return element_builtInCategory
 
-def pickObject(multiple):
+#Pick multiple elements(True) or single element(False)
+def pickObject(multiple = False):
     pickedElem=[]
-    __window__.Hide()
+    # __window__.Hide()
     if multiple:
         pickedRef = uidoc.Selection.PickObjects(ObjectType.Element,'Pick Objects')
     else:
         pickedRef = uidoc.Selection.PickObject(ObjectType.Element,'Pick Object')
-    __window__.Show()
-    __window__.Topmost = True
+    # __window__.Show()
+    # __window__.Topmost = True
     pickedRef = tolist(pickedRef)
     for ref in pickedRef:
         pickedElem.append(doc.GetElement(ref))
     return pickedElem
 
+#Turn on SlabShapeEditor and get points. Must be within Transaction.
 def getSlabShapeVertex(floor):
     position = []
     editor = floor.SlabShapeEditor
@@ -66,6 +74,7 @@ def getSlabShapeVertex(floor):
         position.append(pt.Position)
     return position
 
+#Set slab points height by input offset. SlabShapeEditor must be enabled.
 def setSlabShapeVertex(floor, offset):
     editor = floor.SlabShapeEditor
     ptsArray = editor.SlabShapeVertices
@@ -73,6 +82,7 @@ def setSlabShapeVertex(floor, offset):
         editor.ModifySubElement(pt, height)
     return floor
 
+#Get AdaptivePoint(s) of Adaptive Family
 def getAdaptivePoint(familyinstance, toxyz):
     isValid = AdaptiveComponentInstanceUtils.IsAdaptiveComponentInstance(familyinstance)
     if isValid:
@@ -87,6 +97,7 @@ def getAdaptivePoint(familyinstance, toxyz):
     else:
         return False
 
+#set Location.Curve Type object height.
 def setCurveTypeLocation(instance, offset):
     original = instance.Location.Curve.Tessellate()
     newLine = Line.CreateBound(
@@ -95,17 +106,19 @@ def setCurveTypeLocation(instance, offset):
     )
     instance.Location.Curve = newLine
 
+#set Location.Point Type object height.
 def setPointTypeLocation(instance, offset):
     original = instance.Location.Point
     newPoint = XYZ(original.X,original.Y,offset[0])
     instance.Location.Point = newPoint
 
-
+#Select Target Category Object and Target Object to be moved.
 message('Select element to be reference category.')
 obj_category = pickObject(False)
 message('Select element to be moved')
 obj_move = pickObject(True)
 
+#########################Main Transaction Start########################
 t = Transaction(doc)
 t.Start("Align - Set Location")
 
@@ -129,25 +142,33 @@ for obj in obj_move:
         except:
             pts_move.append(obj.Location.Curve.Tessellate())
 
-
+#Set target category filter
 filters = [ElementCategoryFilter(bic) for bic in getBuiltInCategory(obj_category)]
 filter_set = LogicalOrFilter(filters)
 refIntersector = ReferenceIntersector(filter_set, FindReferenceTarget.All, currentview)
 refIntersector.FindReferencesInRevitLinks = True
 
+#Project Location Reference to target category to Z direction and find farthest height.
+#If there is no projected point, stop running the script and show pop up message.
 highestProjection = []
 for index, pt_set in enumerate(pts_move):
     highestProjection.append([])
     for pt in pt_set:
-        projectedReference = refIntersector.Find(pt,XYZ(0,0,1))
+        projectedPts = []
+        projectedReference = refIntersector.Find(XYZ(pt.X,pt.Y,0),XYZ(0,0,1))
         if len(projectedReference) == 0:
             message("Object must be within the target boundary. {}".format(obj_move[index].Name))
             t.Commit()
             sys.exit()
         else:
-            projectedPts = [ref.GetReference().GlobalPoint for ref in projectedReference]
+            for refContext in projectedReference:
+                ref = refContext.GetReference()
+                if not doc.GetElement(ref.ElementId).Id.IntegerValue == obj_move[index].Id.IntegerValue:
+                    projectedPts.append(ref.GlobalPoint)
+            # projectedPts = [ref.GetReference().GlobalPoint for ref in projectedReference if not doc.GetElement(ref.ElementId).Id.IntegerValue == ]
             highestProjection[index].append(max([coordinates.Z for coordinates in projectedPts]))
 
+#Set Objects location by projected point
 for obj, elevation, pt_move in zip(obj_move,highestProjection, pts_move):
     catName = obj.GetType().Name
     if catName == 'Floor':
@@ -170,5 +191,6 @@ for obj, elevation, pt_move in zip(obj_move,highestProjection, pts_move):
                 setPointTypeLocation(obj, elevation)
         else:
             print("Not Support Type")
-doc.Regenerate()
+
 t.Commit()
+#########################Main Transaction End########################

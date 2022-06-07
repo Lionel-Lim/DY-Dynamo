@@ -16,6 +16,10 @@
       "String": {
         "Key": "DSCore.String",
         "Value": "DSCoreNodes.dll"
+      },
+      "Math": {
+        "Key": "DSCore.Math",
+        "Value": "DSCoreNodes.dll"
       }
     }
   },
@@ -381,84 +385,6 @@
       ],
       "Replication": "Auto",
       "Description": "Swaps rows and columns in a list of lists. If there are some rows that are shorter than others, null values are inserted as place holders in the resultant array such that it is always rectangular.\n\nList.Transpose (lists: var[]..[]): var[]..[]"
-    },
-    {
-      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
-      "NodeType": "FunctionNode",
-      "FunctionSignature": "Autodesk.DesignScript.Geometry.Vector.Scale@double",
-      "Id": "365f0791d06c424dbb2f9c585ca98135",
-      "Inputs": [
-        {
-          "Id": "a625307a9a9b42c38026dbee98f4a9cc",
-          "Name": "vector",
-          "Description": "Autodesk.DesignScript.Geometry.Vector",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        },
-        {
-          "Id": "ce04abf22f904036921388b714b8b03d",
-          "Name": "scale_factor",
-          "Description": "double\nDefault value : 1",
-          "UsingDefaultValue": true,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Outputs": [
-        {
-          "Id": "610b978c163e4ed98189d57a20ceb98e",
-          "Name": "Vector",
-          "Description": "Vector",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Auto",
-      "Description": "Scale Vector uniformly around the origin\n\nVector.Scale (scale_factor: double = 1): Vector"
-    },
-    {
-      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
-      "NodeType": "FunctionNode",
-      "FunctionSignature": "Autodesk.DesignScript.Geometry.Point.Add@Autodesk.DesignScript.Geometry.Vector",
-      "Id": "4a262e3c604c44c694f32a66ef533773",
-      "Inputs": [
-        {
-          "Id": "6621c9c585234c9baadb8c27d486093d",
-          "Name": "point",
-          "Description": "Autodesk.DesignScript.Geometry.Point",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        },
-        {
-          "Id": "ec12c8a6ab4d4e30bfef25303aaf4b5e",
-          "Name": "vectorToAdd",
-          "Description": "Vector",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Outputs": [
-        {
-          "Id": "ed50a876f5c84e1a89fb7072c65edac3",
-          "Name": "Point",
-          "Description": "Point",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Auto",
-      "Description": "Add a vector to a point. The same as Translate(Vector).\n\nPoint.Add (vectorToAdd: Vector): Point"
     },
     {
       "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
@@ -1756,7 +1682,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\ndata = IN[0]\r\n\r\nfor index, item in enumerate(data[1]):\r\n    if data[1][index] == data[1][index+1]:\r\n        range=index+1\r\n        break\r\n\r\n# Place your code below this line\r\nlength = data[0][0:range]\r\npviElevation = data[1][0:range]\r\npviStation = data[2][0:range]\r\nslope = data[3][0:range]\r\nsuperElevationStation = data[4]\r\nsuperElevation = data[5]\r\n\r\n_stationStart =superElevationStation[0]\r\n_stationEnd = superElevationStation[-1]\r\n_CurveType = []\r\n_CurveLength = []\r\n\r\ntarget = [(item*0.001) + _stationStart for item in IN[1]]\r\n\r\ndef accumulate(list):\r\n    total = 0\r\n    for x in list:\r\n        total += x\r\n        yield total\r\n            \r\n\r\ndef RangeTypeAtStation(stations, curvelength, accumulationrequired=True):\r\n    group = []\r\n    if accumulationrequired:\r\n        accumulatedLength = list(accumulate(curvelength))\r\n        accumulatedLength.insert(0, 0)\r\n        accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    else:\r\n        accumulatedStation = curvelength\r\n#    return accumulatedStation\r\n\r\n    for station in stations:\r\n        for index, acs in enumerate(accumulatedStation):\r\n            if accumulatedStation[index] <= station < accumulatedStation[index + 1]:\r\n                group.append(index)\r\n    return group\r\n    \r\ndef ElevationAtStation(group, stations, curvetype, curvelength, pvielevation, slope):\r\n    result = []\r\n    accumulatedLength = list(accumulate(curvelength))\r\n    accumulatedLength.insert(0, 0)\r\n    accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    for g, st in zip(group, stations):\r\n        # Station on Curve\r\n        if curvetype[g] == \"Curve\":\r\n            g1 = slope[g - 1] * 0.01\r\n            g2 = slope[g + 1] * 0.01\r\n            cl = curvelength[g]\r\n            g1Elevation = pvielevation[g] - ((cl / 2) * g1)\r\n            xDist = st - accumulatedStation[g]\r\n            yDist = (g1Elevation + (g1 * xDist) + (((g2 - g1) * (xDist * xDist)) / (2 * cl)))\r\n            result.append(yDist)\r\n        # Station on Line\r\n        elif curvetype[g] == \"Line\":\r\n            if g == 0:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is not last one.\r\n            elif g < max(group):\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is the last one.\r\n            else:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g - 1] + (g1 * (curvelength[g - 1] / 2))\r\n                xDist = st - accumulatedStation[g]\r\n                yDist = g1Elevation + (g1 * xDist)\r\n                result.append(yDist)\r\n    return result\r\n\r\ndef SuperElevationAtStation(stations, slopeatmark, stationatmark):\r\n    slopes = []\r\n    superElevationGroup = RangeTypeAtStation(stations, stationatmark, False)\r\n    for station, seg in zip(stations, superElevationGroup):\r\n        slopes.append(\r\n            slopeatmark[seg] + (\r\n                (slopeatmark[seg + 1] - slopeatmark[seg])\r\n                / (stationatmark[seg + 1] - stationatmark[seg])\r\n                * (station - stationatmark[seg])\r\n            )\r\n        )\r\n    return slopes\r\n\r\n\r\nfor index, (sl, c_len) in enumerate(zip(slope, length)):\r\n    if sl is not None:\r\n        _CurveType.append(\"Line\")\r\n    else:\r\n        _CurveType.append(\"Curve\")\r\n\r\nfor index, (ct, cl) in enumerate(zip(_CurveType, length)):\r\n    if index == 0:\r\n        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - _stationStart)\r\n    elif ct == \"Curve\":\r\n\t    _CurveLength.append(cl)\r\n    elif ct == \"Line\":\r\n\t    if index == len(length) - 1:\r\n\t        _CurveLength.append(_stationEnd - (pviStation[index - 1] + (length[index - 1] / 2)))\r\n\t    else:\r\n\t        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - (pviStation[index - 1] + (length[index - 1] / 2)))\r\ngroup = RangeTypeAtStation(target, _CurveLength)\r\nydisp = ElevationAtStation(group, target, _CurveType, _CurveLength, pviElevation, slope)\r\nse = SuperElevationAtStation(target,superElevation , superElevationStation)\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = ydisp, se",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\ndata = IN[0]\r\n\r\ndef getDataRange(rangesample):\r\n    for index, item in enumerate(rangesample):\r\n        if len(rangesample)-1 == index:\r\n            range = len(rangesample)\r\n            return range\r\n        if rangesample[index] == None and rangesample[index+1] == None:\r\n            range=index+1\r\n            return range\r\n\r\n\r\ncrvRange = getDataRange(data[1])\r\nseRange = getDataRange(data[4])\r\n# Place your code below this line\r\nlength = data[0][0:crvRange]\r\npviElevation = data[1][0:crvRange]\r\npviStation = data[2][0:crvRange]\r\nslope = data[3][0:crvRange]\r\nsuperElevationStation = data[4][0:(seRange-1)]\r\nsuperElevation = data[5][0:(seRange-1)]\r\n\r\n_stationStart =superElevationStation[0]\r\n_stationEnd = superElevationStation[-1]\r\n_CurveType = []\r\n_CurveLength = []\r\n\r\ntarget = [(item*0.001) + _stationStart for item in IN[1]]\r\n\r\ndef accumulate(list):\r\n    total = 0\r\n    for x in list:\r\n        total += x\r\n        yield total\r\n            \r\n\r\ndef RangeTypeAtStation(stations, curvelength, accumulationrequired=True):\r\n    group = []\r\n    if accumulationrequired:\r\n        accumulatedLength = list(accumulate(curvelength))\r\n        accumulatedLength.insert(0, 0)\r\n        accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    else:\r\n        accumulatedStation = curvelength\r\n#    return accumulatedStation\r\n\r\n    for station in stations:\r\n        for index, acs in enumerate(accumulatedStation):\r\n            if accumulatedStation[index] <= station < accumulatedStation[index + 1]:\r\n                group.append(index)\r\n    return group\r\n    \r\ndef ElevationAtStation(group, stations, curvetype, curvelength, pvielevation, slope):\r\n    result = []\r\n    accumulatedLength = list(accumulate(curvelength))\r\n    accumulatedLength.insert(0, 0)\r\n    accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    for g, st in zip(group, stations):\r\n        # Station on Curve\r\n        if curvetype[g] == \"Curve\":\r\n            g1 = slope[g - 1] * 0.01\r\n            g2 = slope[g + 1] * 0.01\r\n            cl = curvelength[g]\r\n            g1Elevation = pvielevation[g] - ((cl / 2) * g1)\r\n            xDist = st - accumulatedStation[g]\r\n            yDist = (g1Elevation + (g1 * xDist) + (((g2 - g1) * (xDist * xDist)) / (2 * cl)))\r\n            result.append(yDist)\r\n        # Station on Line\r\n        elif curvetype[g] == \"Line\":\r\n            if g == 0:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is not last one.\r\n            elif g < max(group):\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is the last one.\r\n            else:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g - 1] + (g1 * (curvelength[g - 1] / 2))\r\n                xDist = st - accumulatedStation[g]\r\n                yDist = g1Elevation + (g1 * xDist)\r\n                result.append(yDist)\r\n    return result\r\n\r\ndef SuperElevationAtStation(stations, slopeatmark, stationatmark):\r\n    slopes = []\r\n    superElevationGroup = RangeTypeAtStation(stations, stationatmark, False)\r\n    for station, seg in zip(stations, superElevationGroup):\r\n        slopes.append(\r\n            slopeatmark[seg] + (\r\n                (slopeatmark[seg + 1] - slopeatmark[seg])\r\n                / (stationatmark[seg + 1] - stationatmark[seg])\r\n                * (station - stationatmark[seg])\r\n            )\r\n        )\r\n    return slopes\r\n\r\n\r\nfor index, (sl, c_len) in enumerate(zip(slope, length)):\r\n    if sl is not None:\r\n        _CurveType.append(\"Line\")\r\n    else:\r\n        _CurveType.append(\"Curve\")\r\n\r\nfor index, (ct, cl) in enumerate(zip(_CurveType, length)):\r\n    if index == 0:\r\n        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - _stationStart)\r\n    elif ct == \"Curve\":\r\n\t    _CurveLength.append(cl)\r\n    elif ct == \"Line\":\r\n\t    if index == len(length) - 1:\r\n\t        _CurveLength.append(_stationEnd - (pviStation[index - 1] + (length[index - 1] / 2)))\r\n\t    else:\r\n\t        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - (pviStation[index - 1] + (length[index - 1] / 2)))\r\ngroup = RangeTypeAtStation(target, _CurveLength)\r\nydisp = ElevationAtStation(group, target, _CurveType, _CurveLength, pviElevation, slope)\r\nse = SuperElevationAtStation(target,superElevation , superElevationStation)\r\n# Assign your output to the OUT variable.\r\nOUT = ydisp, se\r\n",
       "VariableInputPorts": true,
       "Id": "2fde1ebc16294af7a264b563cfbb942a",
       "Inputs": [
@@ -2047,45 +1973,6 @@
       "Outputs": [
         {
           "Id": "e961403368954d11b4cb021fd79c8385",
-          "Name": "",
-          "Description": "Value of expression at line 1",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Allows for DesignScript code to be authored directly"
-    },
-    {
-      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
-      "NodeType": "CodeBlockNode",
-      "Code": "Point.ByCoordinates(placement.X,placement.Y,level);",
-      "Id": "9c25c837607f445e960250c76fc57ea7",
-      "Inputs": [
-        {
-          "Id": "7375f3cc35104215b6b373319949b03f",
-          "Name": "placement",
-          "Description": "placement",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        },
-        {
-          "Id": "1397defb753f4699a75f1a783f9af80a",
-          "Name": "level",
-          "Description": "level",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Outputs": [
-        {
-          "Id": "0cb2cc37766b4e04acb95e9992f301d9",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -4710,11 +4597,11 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "name;\n[\"Reference Line\",\"Placement Curve\",\"Plane Normal Line\", \"Surfaces\"];",
+      "Code": "name;\n[\"Reference Line\",\"Placement Curve\",\"Plane Normal Line\", \"Surfaces\", \"InnerEdge\"];",
       "Id": "37e1612c7d9349ebb4089a04b15509c2",
       "Inputs": [
         {
-          "Id": "78f37a62c38a420bb5e9a7e070d11599",
+          "Id": "ba388924d70447a3a58c54114ca85de0",
           "Name": "name",
           "Description": "name",
           "UsingDefaultValue": false,
@@ -4725,7 +4612,7 @@
       ],
       "Outputs": [
         {
-          "Id": "ad54a3acddc448fd848c3e407743cd14",
+          "Id": "b23dba59151b4b0aa20beeabf5533cfe",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -4734,7 +4621,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "d3e3c391d8514479b837d0683e56deb8",
+          "Id": "f8f5ee18ec6848069cf7234291542325",
           "Name": "",
           "Description": "Value of expression at line 2",
           "UsingDefaultValue": false,
@@ -4891,6 +4778,15 @@
           "Id": "ac028748a4d04ad9ab5c88c158ac92f9",
           "Name": "item5",
           "Description": "Item Index #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0c4f6c4610a84edf8c5129a394efca90",
+          "Name": "item6",
+          "Description": "Item Index #6",
           "UsingDefaultValue": false,
           "Level": 2,
           "UseLevels": false,
@@ -5616,7 +5512,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\ndata = IN[0]\r\n\r\nfor index, item in enumerate(data[1]):\r\n    if data[1][index] == data[1][index+1]:\r\n        range=index+1\r\n        break\r\n\r\n# Place your code below this line\r\nlength = data[0][0:range]\r\npviElevation = data[1][0:range]\r\npviStation = data[2][0:range]\r\nslope = data[3][0:range]\r\nsuperElevationStation = data[4]\r\nsuperElevation = data[5]\r\n\r\n_stationStart =superElevationStation[0]\r\n_stationEnd = superElevationStation[-1]\r\n_CurveType = []\r\n_CurveLength = []\r\n\r\ntarget = [(item*0.001) + _stationStart for item in IN[1]]\r\n\r\ndef accumulate(list):\r\n    total = 0\r\n    for x in list:\r\n        total += x\r\n        yield total\r\n            \r\n\r\ndef RangeTypeAtStation(stations, curvelength, accumulationrequired=True):\r\n    group = []\r\n    if accumulationrequired:\r\n        accumulatedLength = list(accumulate(curvelength))\r\n        accumulatedLength.insert(0, 0)\r\n        accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    else:\r\n        accumulatedStation = curvelength\r\n#    return accumulatedStation\r\n\r\n    for station in stations:\r\n        for index, acs in enumerate(accumulatedStation):\r\n            if accumulatedStation[index] <= station < accumulatedStation[index + 1]:\r\n                group.append(index)\r\n    return group\r\n    \r\ndef ElevationAtStation(group, stations, curvetype, curvelength, pvielevation, slope):\r\n    result = []\r\n    accumulatedLength = list(accumulate(curvelength))\r\n    accumulatedLength.insert(0, 0)\r\n    accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    for g, st in zip(group, stations):\r\n        # Station on Curve\r\n        if curvetype[g] == \"Curve\":\r\n            g1 = slope[g - 1] * 0.01\r\n            g2 = slope[g + 1] * 0.01\r\n            cl = curvelength[g]\r\n            g1Elevation = pvielevation[g] - ((cl / 2) * g1)\r\n            xDist = st - accumulatedStation[g]\r\n            yDist = (g1Elevation + (g1 * xDist) + (((g2 - g1) * (xDist * xDist)) / (2 * cl)))\r\n            result.append(yDist)\r\n        # Station on Line\r\n        elif curvetype[g] == \"Line\":\r\n            if g == 0:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is not last one.\r\n            elif g < max(group):\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is the last one.\r\n            else:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g - 1] + (g1 * (curvelength[g - 1] / 2))\r\n                xDist = st - accumulatedStation[g]\r\n                yDist = g1Elevation + (g1 * xDist)\r\n                result.append(yDist)\r\n    return result\r\n\r\ndef SuperElevationAtStation(stations, slopeatmark, stationatmark):\r\n    slopes = []\r\n    superElevationGroup = RangeTypeAtStation(stations, stationatmark, False)\r\n    for station, seg in zip(stations, superElevationGroup):\r\n        slopes.append(\r\n            slopeatmark[seg] + (\r\n                (slopeatmark[seg + 1] - slopeatmark[seg])\r\n                / (stationatmark[seg + 1] - stationatmark[seg])\r\n                * (station - stationatmark[seg])\r\n            )\r\n        )\r\n    return slopes\r\n\r\n\r\nfor index, (sl, c_len) in enumerate(zip(slope, length)):\r\n    if sl is not None:\r\n        _CurveType.append(\"Line\")\r\n    else:\r\n        _CurveType.append(\"Curve\")\r\n\r\nfor index, (ct, cl) in enumerate(zip(_CurveType, length)):\r\n    if index == 0:\r\n        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - _stationStart)\r\n    elif ct == \"Curve\":\r\n\t    _CurveLength.append(cl)\r\n    elif ct == \"Line\":\r\n\t    if index == len(length) - 1:\r\n\t        _CurveLength.append(_stationEnd - (pviStation[index - 1] + (length[index - 1] / 2)))\r\n\t    else:\r\n\t        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - (pviStation[index - 1] + (length[index - 1] / 2)))\r\ngroup = RangeTypeAtStation(target, _CurveLength)\r\nydisp = ElevationAtStation(group, target, _CurveType, _CurveLength, pviElevation, slope)\r\nse = SuperElevationAtStation(target,superElevation , superElevationStation)\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = ydisp, se",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\ndata = IN[0]\r\n\r\ndef getDataRange(rangesample):\r\n    for index, item in enumerate(rangesample):\r\n        if len(rangesample)-1 == index:\r\n            range = len(rangesample)\r\n            return range\r\n        if rangesample[index] == None and rangesample[index+1] == None:\r\n            range=index+1\r\n            return range\r\n\r\n\r\ncrvRange = getDataRange(data[1])\r\nseRange = getDataRange(data[4])\r\n# Place your code below this line\r\nlength = data[0][0:crvRange]\r\npviElevation = data[1][0:crvRange]\r\npviStation = data[2][0:crvRange]\r\nslope = data[3][0:crvRange]\r\nsuperElevationStation = data[4][0:(seRange-1)]\r\nsuperElevation = data[5][0:(seRange-1)]\r\n\r\n_stationStart =superElevationStation[0]\r\n_stationEnd = superElevationStation[-1]\r\n_CurveType = []\r\n_CurveLength = []\r\n\r\ntarget = [(item*0.001) + _stationStart for item in IN[1]]\r\n\r\ndef accumulate(list):\r\n    total = 0\r\n    for x in list:\r\n        total += x\r\n        yield total\r\n            \r\n\r\ndef RangeTypeAtStation(stations, curvelength, accumulationrequired=True):\r\n    group = []\r\n    if accumulationrequired:\r\n        accumulatedLength = list(accumulate(curvelength))\r\n        accumulatedLength.insert(0, 0)\r\n        accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    else:\r\n        accumulatedStation = curvelength\r\n#    return accumulatedStation\r\n\r\n    for station in stations:\r\n        for index, acs in enumerate(accumulatedStation):\r\n            if accumulatedStation[index] <= station < accumulatedStation[index + 1]:\r\n                group.append(index)\r\n    return group\r\n    \r\ndef ElevationAtStation(group, stations, curvetype, curvelength, pvielevation, slope):\r\n    result = []\r\n    accumulatedLength = list(accumulate(curvelength))\r\n    accumulatedLength.insert(0, 0)\r\n    accumulatedStation = [length + _stationStart for length in accumulatedLength]\r\n    for g, st in zip(group, stations):\r\n        # Station on Curve\r\n        if curvetype[g] == \"Curve\":\r\n            g1 = slope[g - 1] * 0.01\r\n            g2 = slope[g + 1] * 0.01\r\n            cl = curvelength[g]\r\n            g1Elevation = pvielevation[g] - ((cl / 2) * g1)\r\n            xDist = st - accumulatedStation[g]\r\n            yDist = (g1Elevation + (g1 * xDist) + (((g2 - g1) * (xDist * xDist)) / (2 * cl)))\r\n            result.append(yDist)\r\n        # Station on Line\r\n        elif curvetype[g] == \"Line\":\r\n            if g == 0:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is not last one.\r\n            elif g < max(group):\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g + 1] - (g1 * (curvelength[g + 1] / 2))\r\n                xDist = accumulatedStation[g + 1] - st\r\n                yDist = g1Elevation - (g1 * xDist)\r\n                result.append(yDist)\r\n            # This Line is the last one.\r\n            else:\r\n                g1 = slope[g] * 0.01\r\n                g1Elevation = pvielevation[g - 1] + (g1 * (curvelength[g - 1] / 2))\r\n                xDist = st - accumulatedStation[g]\r\n                yDist = g1Elevation + (g1 * xDist)\r\n                result.append(yDist)\r\n    return result\r\n\r\ndef SuperElevationAtStation(stations, slopeatmark, stationatmark):\r\n    slopes = []\r\n    superElevationGroup = RangeTypeAtStation(stations, stationatmark, False)\r\n    for station, seg in zip(stations, superElevationGroup):\r\n        slopes.append(\r\n            slopeatmark[seg] + (\r\n                (slopeatmark[seg + 1] - slopeatmark[seg])\r\n                / (stationatmark[seg + 1] - stationatmark[seg])\r\n                * (station - stationatmark[seg])\r\n            )\r\n        )\r\n    return slopes\r\n\r\n\r\nfor index, (sl, c_len) in enumerate(zip(slope, length)):\r\n    if sl is not None:\r\n        _CurveType.append(\"Line\")\r\n    else:\r\n        _CurveType.append(\"Curve\")\r\n\r\nfor index, (ct, cl) in enumerate(zip(_CurveType, length)):\r\n    if index == 0:\r\n        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - _stationStart)\r\n    elif ct == \"Curve\":\r\n\t    _CurveLength.append(cl)\r\n    elif ct == \"Line\":\r\n\t    if index == len(length) - 1:\r\n\t        _CurveLength.append(_stationEnd - (pviStation[index - 1] + (length[index - 1] / 2)))\r\n\t    else:\r\n\t        _CurveLength.append((pviStation[index + 1] - (length[index + 1] / 2)) - (pviStation[index - 1] + (length[index - 1] / 2)))\r\ngroup = RangeTypeAtStation(target, _CurveLength)\r\nydisp = ElevationAtStation(group, target, _CurveType, _CurveLength, pviElevation, slope)\r\nse = SuperElevationAtStation(target,superElevation , superElevationStation)\r\n# Assign your output to the OUT variable.\r\nOUT = ydisp, se\r\n",
       "VariableInputPorts": true,
       "Id": "755e024d5f21413cbf9b07173fa35910",
       "Inputs": [
@@ -5656,12 +5552,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "((12630-11310)..(12960-11310)..30)*1000;",
+      "Code": "((6570-5610)..(7470-5610)..30)*1000;",
       "Id": "0a56f3d03b1e443a857227300ee6a15e",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "a815d601adfe4fc7a1210b7b286b6f5f",
+          "Id": "4bce454b91b9455cb671edea02b8442e",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -5676,22 +5572,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "a+11310;",
+      "Code": "6570..7470..30;",
       "Id": "d740223c06744de493c0e71fb796e539",
-      "Inputs": [
-        {
-          "Id": "dc79737b456d47469e103a9e36953999",
-          "Name": "a",
-          "Description": "a",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
+      "Inputs": [],
       "Outputs": [
         {
-          "Id": "3698d36aaef441f4834f60511d213560",
+          "Id": "692fabd6b6a24b32a52672ba7a1ea7aa",
           "Name": "",
           "Description": "Value of expression at line 1",
           "UsingDefaultValue": false,
@@ -6616,6 +6502,123 @@
       ],
       "Replication": "Disabled",
       "Description": "Makes a new list out of the given inputs"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "cond=Math.Abs(Math.Average(dist))<5;\ncond?0:dist;",
+      "Id": "954c126a2b7e48baa4f0e8d795fe1318",
+      "Inputs": [
+        {
+          "Id": "72000677ff814cb39a9d611a3e92f7f3",
+          "Name": "dist",
+          "Description": "dist",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "326bf1199e9d46a3b2a19c330d3e62ed",
+          "Name": "",
+          "Description": "cond",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "96067bd026bc4150b8423ffde29f5645",
+          "Name": "",
+          "Description": "Value of expression at line 2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "InnerNotRequired?\"\":InnerEdgePoint;",
+      "Id": "d7a3cbf8737e4c6ca22291bf72f438e8",
+      "Inputs": [
+        {
+          "Id": "e4bb070682fc451f91c509aa9ea8ebcf",
+          "Name": "InnerNotRequired",
+          "Description": "InnerNotRequired",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e815ea7f7dc84091b78f93b2ae659f9c",
+          "Name": "InnerEdgePoint",
+          "Description": "InnerEdgePoint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ac712a797a214870be90ef57736c82b9",
+          "Name": "",
+          "Description": "Value of expression at line 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "Point.ByCoordinates(placement.X,placement.Y,level);",
+      "Id": "64ce735462a14432954a7b7b2667c188",
+      "Inputs": [
+        {
+          "Id": "1f696ca821694a94a2e07c06723beb8f",
+          "Name": "placement",
+          "Description": "placement",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "901e78c2b9d4434fa146a2934e73f4b7",
+          "Name": "level",
+          "Description": "level",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0582d4dbe77a4dbca2944e3d1f3e560f",
+          "Name": "",
+          "Description": "Value of expression at line 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
     }
   ],
   "Connectors": [
@@ -6666,11 +6669,6 @@
     },
     {
       "Start": "e13a8d27930c42389d157b6867846a4c",
-      "End": "6621c9c585234c9baadb8c27d486093d",
-      "Id": "8b96012767c04d64a5497884aff85bcf"
-    },
-    {
-      "Start": "e13a8d27930c42389d157b6867846a4c",
       "End": "81c945e001f0430bbffe1774f821b215",
       "Id": "9fbe985d2d9a4f10b34ff57bec674ede"
     },
@@ -6685,9 +6683,9 @@
       "Id": "b6ac8be29d8f402388b1e6251cdbca8a"
     },
     {
-      "Start": "0f3e070e839946eb8b2a9454fb956299",
-      "End": "a625307a9a9b42c38026dbee98f4a9cc",
-      "Id": "fb4d73ebeeab4c7a8aef59c6535a14a6"
+      "Start": "e13a8d27930c42389d157b6867846a4c",
+      "End": "e815ea7f7dc84091b78f93b2ae659f9c",
+      "Id": "3a884ad4c0c4447ab8fbb85e98ca5f8e"
     },
     {
       "Start": "0f3e070e839946eb8b2a9454fb956299",
@@ -6750,24 +6748,9 @@
       "Id": "94992a403390466e8b99dca36bf2d4fc"
     },
     {
-      "Start": "610b978c163e4ed98189d57a20ceb98e",
-      "End": "ec12c8a6ab4d4e30bfef25303aaf4b5e",
-      "Id": "52877b58a60b4f74ac07858c0240f061"
-    },
-    {
-      "Start": "ed50a876f5c84e1a89fb7072c65edac3",
-      "End": "7375f3cc35104215b6b373319949b03f",
-      "Id": "9ec081b7bafb461496be6d3ac52fec1b"
-    },
-    {
       "Start": "58796a1ac0cc4a3b9767802dc1cb942f",
       "End": "26c7d50e82b34815a4c6c0a3d6986f58",
       "Id": "2466e07b2a0640baaa7cc90d07e62cde"
-    },
-    {
-      "Start": "58796a1ac0cc4a3b9767802dc1cb942f",
-      "End": "ce04abf22f904036921388b714b8b03d",
-      "Id": "e0247f32ecdb4c2d9af16127b3127a27"
     },
     {
       "Start": "6c74e0993e744929976db20123ef2ab2",
@@ -6842,7 +6825,7 @@
     {
       "Start": "ab170e4aec044323928c605efcf57ab9",
       "End": "c686e59c045d4ec88293190f58d8d66e",
-      "Id": "45b9db3444b6448a92a7b9a51547608d"
+      "Id": "443ef6bb267c47c5bd5c29beff9541c4"
     },
     {
       "Start": "27c7da15a74b484396cf5131a0c759e8",
@@ -7030,14 +7013,9 @@
       "Id": "ecdcf972f51c4afbb02cf01633a800fe"
     },
     {
-      "Start": "e961403368954d11b4cb021fd79c8385",
-      "End": "1397defb753f4699a75f1a783f9af80a",
-      "Id": "6a078378fea547b4ae9997a225ff2e4e"
-    },
-    {
-      "Start": "0cb2cc37766b4e04acb95e9992f301d9",
-      "End": "0e8ec480919d4115b95bee6aaa01c17b",
-      "Id": "2328aec73ca448dfb4123bf4eaaf17bd"
+      "Start": "e0808e1b0dcb4d5ca054ee81a35b68c2",
+      "End": "901e78c2b9d4434fa146a2934e73f4b7",
+      "Id": "45bd6153bb9b42e195cd517af47f2a72"
     },
     {
       "Start": "86db07673a4c4a36a69a4a1274dc8af7",
@@ -7196,8 +7174,8 @@
     },
     {
       "Start": "a21e42a009c3408798aa7e0b16ba7759",
-      "End": "d30bce8530764c099e5a8101a91f7f27",
-      "Id": "3c4636e9b342424dab59e20d31231c3f"
+      "End": "72000677ff814cb39a9d611a3e92f7f3",
+      "Id": "9c2e08f2b05b431c888e0f29ac44d09e"
     },
     {
       "Start": "0a128e62fb2349f98a6d4290be47792e",
@@ -7221,28 +7199,8 @@
     },
     {
       "Start": "158d71538c8a4bd78ed8dd644eea9d64",
-      "End": "c988d1b44c57453294fa334e8c2379db",
-      "Id": "7004c1cce75d4fca90fb010720520feb"
-    },
-    {
-      "Start": "158d71538c8a4bd78ed8dd644eea9d64",
-      "End": "73310ed1fef9452e81fb82861f56e199",
-      "Id": "019650d17c6843b9afc127be3d654ceb"
-    },
-    {
-      "Start": "158d71538c8a4bd78ed8dd644eea9d64",
-      "End": "98d47752a94a4c8f801147ad40ec3342",
-      "Id": "5cb74f3580094459873f66b828c33098"
-    },
-    {
-      "Start": "158d71538c8a4bd78ed8dd644eea9d64",
-      "End": "fc135971def94212879d8d3232e706aa",
-      "Id": "2aeefd5e849c4655bdca87c8b9332559"
-    },
-    {
-      "Start": "158d71538c8a4bd78ed8dd644eea9d64",
       "End": "dc9b45a5b02a484993fec035927bc2d1",
-      "Id": "7106fd504fe64abf91ee1a20a3d469d7"
+      "Id": "54d77c8eb41043379a0ea943fe29b7a2"
     },
     {
       "Start": "56b05f2d68f547679452aa9b4bd3886b",
@@ -7361,8 +7319,8 @@
     },
     {
       "Start": "c9253a8c7d4a4a3f96e6ede559ff4f62",
-      "End": "78f37a62c38a420bb5e9a7e070d11599",
-      "Id": "90c50ee3b1ce4e7b8cab979f01ff69f3"
+      "End": "ba388924d70447a3a58c54114ca85de0",
+      "Id": "46f6d9597c9c427c80df312ab927ffb3"
     },
     {
       "Start": "ed7acc12e1ca48f68e5142a862b9c4f8",
@@ -7520,14 +7478,14 @@
       "Id": "95886b3a289d4e4aa6243119a77334ca"
     },
     {
-      "Start": "ad54a3acddc448fd848c3e407743cd14",
+      "Start": "b23dba59151b4b0aa20beeabf5533cfe",
       "End": "1dbabd3fa1bb4090a45f272545ace5b5",
-      "Id": "1b0acb9eb36a49caaf2ebf2fd043bd2a"
+      "Id": "b0f4ef6d3cdc4a1dad2be6aa5ae7df31"
     },
     {
-      "Start": "d3e3c391d8514479b837d0683e56deb8",
+      "Start": "f8f5ee18ec6848069cf7234291542325",
       "End": "25e3c35931af497f9e4b92d46a73e22a",
-      "Id": "54b4afc0448749958de60f46fcbfb747"
+      "Id": "23fb7efc21704c708ac44e6cdc094de5"
     },
     {
       "Start": "b292f4578f3749a7b5aabfefb3859d0a",
@@ -7543,11 +7501,6 @@
       "Start": "304e334208c949f4b6eca1ab5919b974",
       "End": "b6334cda545b4055ab6e4fbddc4252dd",
       "Id": "2ccb8149cb2b45bf809c0b3bae6843cd"
-    },
-    {
-      "Start": "304e334208c949f4b6eca1ab5919b974",
-      "End": "5425c14a0c7e4c97bdc31cdf836530b7",
-      "Id": "cfba36ab223746d2a2372e74c770cdeb"
     },
     {
       "Start": "588c5745490f451ebe20be665c669abf",
@@ -7598,6 +7551,16 @@
       "Start": "1d1c622430b944899dc13a4f54c8f930",
       "End": "25078c74a2704cd4a55f4caf1caa77fb",
       "Id": "96510dac3d25476e982e2633c724c2f1"
+    },
+    {
+      "Start": "a3442bb809584c55bbba6c4f2b7d528e",
+      "End": "0c4f6c4610a84edf8c5129a394efca90",
+      "Id": "dbddc824bb5d4a7a95bbaf011e92dabb"
+    },
+    {
+      "Start": "a3442bb809584c55bbba6c4f2b7d528e",
+      "End": "5425c14a0c7e4c97bdc31cdf836530b7",
+      "Id": "4c364e1fe6514e85b3a8af15dfc9e5ba"
     },
     {
       "Start": "4991c606184e4a4a9d8a2635750995a9",
@@ -7665,14 +7628,9 @@
       "Id": "b26b20d929fb41cd97d248c18d5e68a5"
     },
     {
-      "Start": "a815d601adfe4fc7a1210b7b286b6f5f",
-      "End": "dc79737b456d47469e103a9e36953999",
-      "Id": "3912ab231b1647ea9606ebaf9d32b04d"
-    },
-    {
-      "Start": "a815d601adfe4fc7a1210b7b286b6f5f",
+      "Start": "4bce454b91b9455cb671edea02b8442e",
       "End": "d3eee7455f764101915595cb7677f841",
-      "Id": "4504e1e5171d4490be4a1d0e90238f73"
+      "Id": "9f6539efaf2b4fa0853e758877e4f504"
     },
     {
       "Start": "4c5a501a53df45b58c20e20504c253d1",
@@ -7848,6 +7806,46 @@
       "Start": "caadf230fd93490aa088525c41c8aace",
       "End": "378cca28c4334ffe88df0c2bd7f99e6c",
       "Id": "112f2153629b472ea6fb808616ea8487"
+    },
+    {
+      "Start": "326bf1199e9d46a3b2a19c330d3e62ed",
+      "End": "e4bb070682fc451f91c509aa9ea8ebcf",
+      "Id": "bada530e07894884ac2fc6709e90175f"
+    },
+    {
+      "Start": "96067bd026bc4150b8423ffde29f5645",
+      "End": "d30bce8530764c099e5a8101a91f7f27",
+      "Id": "2d6ed19d39d44a44babf03ffff77089a"
+    },
+    {
+      "Start": "ac712a797a214870be90ef57736c82b9",
+      "End": "1f696ca821694a94a2e07c06723beb8f",
+      "Id": "6c0eb62da15048f795e264aed974d3d4"
+    },
+    {
+      "Start": "0582d4dbe77a4dbca2944e3d1f3e560f",
+      "End": "0e8ec480919d4115b95bee6aaa01c17b",
+      "Id": "d3742ab85b2e426784b9925767510a26"
+    },
+    {
+      "Start": "0582d4dbe77a4dbca2944e3d1f3e560f",
+      "End": "fc135971def94212879d8d3232e706aa",
+      "Id": "222dc56072134ef0a3685a9bcf92df0d"
+    },
+    {
+      "Start": "0582d4dbe77a4dbca2944e3d1f3e560f",
+      "End": "c988d1b44c57453294fa334e8c2379db",
+      "Id": "0858b840e7e34ac98ece87fe86d5f421"
+    },
+    {
+      "Start": "0582d4dbe77a4dbca2944e3d1f3e560f",
+      "End": "73310ed1fef9452e81fb82861f56e199",
+      "Id": "deb8a93597fa4f4b936ec41a8084cef7"
+    },
+    {
+      "Start": "0582d4dbe77a4dbca2944e3d1f3e560f",
+      "End": "98d47752a94a4c8f801147ad40ec3342",
+      "Id": "a502a8a305a44f1f9d86a90a54c98fdc"
     }
   ],
   "Dependencies": [
@@ -7898,7 +7896,7 @@
       "ScaleFactor": 100.0,
       "HasRunWithoutCrash": true,
       "IsVisibleInDynamoLibrary": true,
-      "Version": "2.3.1.11775",
+      "Version": "2.3.2.15696",
       "RunType": "Manual",
       "RunPeriod": "1000"
     },
@@ -8014,26 +8012,6 @@
         "Excluded": false,
         "X": 1450.4523577449745,
         "Y": 712.41492357549737
-      },
-      {
-        "ShowGeometry": true,
-        "Name": "Vector.Scale",
-        "Id": "365f0791d06c424dbb2f9c585ca98135",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 5336.6866300234942,
-        "Y": 467.93187917880823
-      },
-      {
-        "ShowGeometry": false,
-        "Name": "Point.Add",
-        "Id": "4a262e3c604c44c694f32a66ef533773",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 5648.5181965530282,
-        "Y": 422.67920639255328
       },
       {
         "ShowGeometry": true,
@@ -8418,16 +8396,6 @@
       {
         "ShowGeometry": true,
         "Name": "Code Block",
-        "Id": "9c25c837607f445e960250c76fc57ea7",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 6333.424153713574,
-        "Y": 439.22587715287318
-      },
-      {
-        "ShowGeometry": true,
-        "Name": "Code Block",
         "Id": "ff4bfbd6a1a14c98a023b8099d8a071b",
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
@@ -8642,8 +8610,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 6331.2055207364192,
-        "Y": 617.916791797434
+        "X": 6283.0775449115336,
+        "Y": 593.91808161224151
       },
       {
         "ShowGeometry": true,
@@ -8652,8 +8620,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 6337.40855612548,
-        "Y": 781.557453261166
+        "X": 6275.1804500020644,
+        "Y": 786.63729865899575
       },
       {
         "ShowGeometry": false,
@@ -9042,8 +9010,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8161.3975539614776,
-        "Y": 150.65800081135308
+        "X": 8132.4458464449845,
+        "Y": 154.7939590279949
       },
       {
         "ShowGeometry": true,
@@ -9282,8 +9250,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 10091.402822741082,
-        "Y": 1127.2897766489327
+        "X": 10120.783422574443,
+        "Y": 1112.0118647355848
       },
       {
         "ShowGeometry": true,
@@ -9312,8 +9280,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3493.2079426433656,
-        "Y": 356.04814229257005
+        "X": 3549.0850600043614,
+        "Y": 233.28306890270352
       },
       {
         "ShowGeometry": true,
@@ -9332,8 +9300,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3274.695550276489,
-        "Y": 394.61526931963118
+        "X": 3281.0687583449776,
+        "Y": 317.22631420226452
       },
       {
         "ShowGeometry": true,
@@ -9594,6 +9562,36 @@
         "Excluded": false,
         "X": 7834.2109529603431,
         "Y": 911.46536787497894
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "954c126a2b7e48baa4f0e8d795fe1318",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4202.1569518361839,
+        "Y": 387.50672280056233
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "d7a3cbf8737e4c6ca22291bf72f438e8",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 5444.6844226756348,
+        "Y": 417.51148271434323
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "64ce735462a14432954a7b7b2667c188",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 6323.7490137714194,
+        "Y": 371.48639498873933
       }
     ],
     "Annotations": [
@@ -9615,7 +9613,7 @@
       },
       {
         "Id": "187ce2b9fae247efb6a85857222e6bbb",
-        "Title": "Outer Point",
+        "Title": "Outer Kerb Point",
         "Nodes": [
           "ff4bfbd6a1a14c98a023b8099d8a071b",
           "e805428e95a14d088ecc141d3a867802",
@@ -9634,7 +9632,7 @@
       },
       {
         "Id": "8b1c94bb175f43ef85e58210484cd508",
-        "Title": "Inner Point",
+        "Title": "Inner Kerb Point",
         "Nodes": [
           "18934d85ff2648b0b9c4284a21946667",
           "441a6dd3b08f46a2bf8a6b3fcc57785b"
@@ -9648,10 +9646,26 @@
         "InitialHeight": 177.35935405645219,
         "TextblockHeight": 43.0,
         "Background": "#FFC1D676"
+      },
+      {
+        "Id": "cc8f5d8dc5d74a779c9c31feb32dd248",
+        "Title": "Inner Edge",
+        "Nodes": [
+          "d7a3cbf8737e4c6ca22291bf72f438e8"
+        ],
+        "Left": 5434.6844226756348,
+        "Top": 364.51148271434323,
+        "Width": 461.0,
+        "Height": 156.0,
+        "FontSize": 36.0,
+        "InitialTop": 417.51148271434323,
+        "InitialHeight": 123.0,
+        "TextblockHeight": 43.0,
+        "Background": "#FFC1D676"
       }
     ],
-    "X": 1056.9785326503825,
-    "Y": -230.2995207843403,
-    "Zoom": 0.65813396860475837
+    "X": 515.28112059959585,
+    "Y": -672.350243958579,
+    "Zoom": 0.83130295032186263
   }
 }
