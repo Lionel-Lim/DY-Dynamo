@@ -28,7 +28,7 @@ class VerticalCurve:
         self._stationStart = stationrange[0]
         self._stationEnd = stationrange[1]
 
-    def accumulate(list):
+    def accumulate(self, list):
         total = 0
         for x in list:
             total += x
