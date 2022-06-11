@@ -1,10 +1,80 @@
 import math
+from collections import Iterable
+
+def Flatten(x):
+    if isinstance(x, Iterable):
+        return [a for i in x for a in Flatten(i)]
+    else:
+        return [x]
+
+def Clip(value, min, max):
+    """
+    Clip (limit) the values in an array.
+    For example, if an interval of [0, 1] is specified, values smaller than 0 become 0, and values larger than 1 become 1.
+    """
+    return min if value < min else max if value > max else value
 
 class ArgumentOutOfRangeException(Exception):
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
         return self.msg
+
+class ArgumentException(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg
+
+class Intersect:
+    def ByTwoVectorAndPoint(self, point1, vector1, point2, vector2):
+        vector1 = vector1.Normalise()
+        vector2 = vector2.Normalise()
+        create = CreateEntity()
+        stp2edp = create.VectorByTwoPoints(point1, point2)
+        cross1 = stp2edp.CrossProduct(vector2)
+        cross2 = vector1.CrossProduct(vector2)
+        t = cross1 / cross2
+        add_vector = vector1.Scale(t)
+        intersect_point = add_vector.Add(point1)
+        return intersect_point
+
+class CreateEntity:
+    def VectorByTwoPoints(self, point_first, point_second):
+        dist_x = point_second.X - point_first.X
+        dist_y = point_second.Y - point_first.Y
+        vec = VectorEntity(dist_x, dist_y)
+        return vec
+        
+    def ArcByThreePoints(self, startpoint, endpoint, midpoint):
+        """
+        Return a point using Three point
+        Args
+            (point)startpoint : Start Point of Arc
+            (point)endpoint : End Point of Arc
+            (point)midpoint : A point on Arc
+        """
+        ab_mid = PointEntity((startpoint.X+midpoint.X)/2 , (startpoint.Y+midpoint.Y)/2)
+        bc_mid = PointEntity((endpoint.X+midpoint.X)/2 , (endpoint.Y+midpoint.Y)/2)
+        #slope == 0 -> X Axis Parallel, Slope == zero divider -> Y Axis Parallel
+        def Calculate_Vector_To_Centrepoint(edgepoint, middlepoint):
+            ydiff = edgepoint.Y - middlepoint.Y
+            xdiff = edgepoint.X - middlepoint.X
+            if ydiff == 0:
+                tocentre = VectorEntity(0, middlepoint.X)
+            elif xdiff == 0:
+                tocentre = VectorEntity(-middlepoint.Y, 0)
+            else:
+                slope = (edgepoint.Y - middlepoint.Y) / (edgepoint.X - middlepoint.X)
+                perp_slope = -math.pow(slope,-1)
+                y_intercept = middlepoint.Y - (perp_slope * middlepoint.X)
+                tocentre = self.VectorByTwoPoints(middlepoint, PointEntity(0,y_intercept))
+            return tocentre
+        ab_vec = Calculate_Vector_To_Centrepoint(startpoint, midpoint)
+        bc_vec = Calculate_Vector_To_Centrepoint(endpoint, midpoint)
+        intersection = Intersect()
+        centre_point = intersection.ByTwoVectorAndPoint(ab_mid, ab_vec, bc_mid, bc_vec)
+        return ArcEntity(startpoint, endpoint, centre_point)
 
 class PointEntity:
     """
@@ -14,94 +84,144 @@ class PointEntity:
         (float)y : y axis coordinate
     """
     def __init__(self, point_x = 0, point_y = 0):
-        self.x = point_x
-        self.y = point_y
+        self.X = point_x
+        self.Y = point_y
 
     def __call__(self):
-        return [self.x,self.y]
+        return (self.X,self.Y)
+
+    def DistanceTo(self, point):
+        xdist = self.X - point.X
+        ydist = self.Y - point.Y
+        distance = math.sqrt(math.pow(xdist,2) + math.pow(ydist,2))
+        return distance
+
+    def Origin(self):
+        return PointEntity(0,0)
+
+    def Rotate(self, origin, angle=0):
+        """
+        Rotate a point counterclockwise by a given angle around a given origin.
+        The angle should be given in radians.
+        """
+        ox = origin.X
+        oy = origin.Y
+        px = self.X
+        py = self.Y
+
+        qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+        qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+        return PointEntity(qx, qy)
+    
+    def VectorTo(self, point):
+        create = CreateEntity()
+        return create.VectorByTwoPoints(self, point)
+
+
+class LineEntity:
+    def __init__(self, startpoint, endpoint):
+        self.StartPoint = startpoint
+        self.EndPoint = endpoint
+        self.Length = math.sqrt(
+            math.pow(
+                self.StartPoint.X-self.EndPoint.X,2)+
+                math.pow(self.StartPoint.Y-self.EndPoint.Y,2)
+            )
+
+    def __call__(self):
+        return [self.StartPoint, self.EndPoint]
+
+    def GetEndPoint(self, condition):
+        if condition == 0:
+            return self.StartPoint
+        elif condition == 1:
+            return self.EndPoint
+        elif condition == -1:
+            return self.__call__()
+        else:
+            raise ArgumentException("{} is not valid argument.".format(condition))
 
 class VectorEntity:
+    """
+    Create Vector Instance by 2D Coordinates
+    Args
+        (float)x : x axis coordinate
+        (float)y : y axis coordinate
+    """
     def __init__(self, vector_x = 0, vector_y = 0):
-        self.x = vector_x
-        self.y = vector_y
+        self.X = vector_x
+        self.Y = vector_y
+        self.Length = math.sqrt(math.pow(self.X,2)+math.pow(self.Y,2))
     
     def __call__(self):
-        return [self.x,self.y]
+        return (self.X,self.Y)
     
     def Normalise(self):
-        norm = math.sqrt(math.pow(self.x,2)+math.pow(self.y,2))
-        vec_normalised = VectorEntity(self.x / norm, self.y / norm)
+        norm = self.Length
+        vec_normalised = VectorEntity(self.X / norm, self.Y / norm)
         return vec_normalised
 
     def Add(self, point):
-        newpoint = PointEntity(point.x+self.x, point.y+self.y)
+        newpoint = PointEntity(point.X+self.X, point.Y+self.Y)
         return newpoint
 
+    def CrossProduct(self, vector):
+        cross_product = (self.X * vector.Y) - (self.Y * vector.X)
+        return cross_product
+    
+    def DotProduct(self, vector):
+        dot_product = sum([i*j for (i, j) in zip(self(), vector())])
+        return dot_product
 
-class CreateEntity:
-    def Vector_ByTwoPoints(self, point_first, point_second):
-        dist_x = point_second.x - point_first.x
-        dist_y = point_second.y - point_first.y
-        vec = VectorEntity(dist_x, dist_y)
-        return vec
-        
-    def VectorByThreePoints(self, point_1, point_2, point_3):
+    def Scale(self, factor):
+        scale_vector = VectorEntity(self.X * factor, self.Y * factor)
+        return scale_vector
+    
+    def AngleTo(self, vector, isdegree=False):
         """
-        Return a point using Three point
-        Args
-            (point)end0 : One of End Point
-            (point)end1 : One of End Point
-            (point)pointOnArc : Any Point on Arc
+        Returns the angle(Radian) between this vector and the input vector.
+        Set bool to True if the output is to be Degree, else Radian
         """
-        a = point_1
-        b = point_2
-        c = point_3
-        ab_mid = PointEntity((a.x+c.x)/2 , (a.y+c.y)/2)
-        bc_mid = PointEntity((b.x+c.x)/2 , (b.y+c.y)/2)
-        ab_slope = (a.y - c.y) / (a.x - c.x)
-        bc_slope = (b.y - c.y) / (b.x - c.x)
-        ab_slope_perp = -math.pow(ab_slope, -1)
-        bc_slope_perp = -math.pow(bc_slope,-1)
-        ab_yintercept = ab_mid.y - (ab_slope_perp * ab_mid.x)
-        bc_yintercept = bc_mid.y - (bc_slope_perp * bc_mid.x)
-        ab_vec = self.Vector_ByTwoPoints(ab_mid, PointEntity(0,ab_yintercept))
-        bc_vec = self.Vector_ByTwoPoints(bc_mid, PointEntity(0,bc_yintercept))
-        its = Intersect()
-        centre_point = its.ByTwoVectorAndPoint(ab_mid, ab_vec, bc_mid, bc_vec)
-        return centre_point
+        v1_u = self.Normalise()
+        v2_u = vector.Normalise()
+        dot = Clip(v1_u.DotProduct(v2_u),-1,1)
+        angle = math.acos(dot)
+        return angle if not isdegree else math.degrees(angle) 
+    
+
 
 class ArcEntity:
-    def __init__(self, center_point, radius):
-        self.ctrpoint = center_point
-        self.radius = radius
+    def __init__(self, startpoint, endpoint, centrepoint):
+        self.StartPoint = startpoint
+        self.EndPoint = endpoint
+        self.CentrePoint = centrepoint
+        self.Radius = centrepoint.DistanceTo(startpoint)
+        create = CreateEntity()
+        self.__CTR2STRT = create.VectorByTwoPoints(centrepoint, startpoint)
+        self.__CTR2END = create.VectorByTwoPoints(centrepoint, endpoint)
+        self.Angle = self.__CTR2STRT.AngleTo(self.__CTR2END)
+        self.Length = self.Radius * self.Angle
+        self.__IsClockwise = False if self.__CTR2STRT.CrossProduct(self.__CTR2END) > 0 else True
         
     def PointAtSegmentLength(self, segmentlength):
-        rad = math.radians((180*segmentlength)/(math.pi*self.radius))
         try:
-            if rad > 1:
-                raise ArgumentOutOfRangeException("Length {} is Out of Arc Length".format(segmentlength))
-            dist_x = self.radius * math.cos(rad)
-            dist_y = self.radius * math.sin(rad)
-            point_x = self.ctrpoint.x + dist_x
-            point_y = self.ctrpoint.y + dist_y
-            return PointEntity(point_x, point_y)
+            if segmentlength > self.Length:
+                raise ArgumentOutOfRangeException("Length {} is Out of Arc Length (length <= {})".format(segmentlength, self.Length))
         except ArgumentOutOfRangeException as e:
             return "Error : {}".format(e)
-    # def Line_PointAt(self, start_point, direction)
+        rad = math.radians((180*segmentlength)/(math.pi*self.Radius))
+        dir_rad = -rad if self.__IsClockwise else rad
+        point = self.StartPoint.Rotate(self.CentrePoint, dir_rad)
+        return point
+    
+    def NormalAtSegmentLength(self, segmentlength):
+        point = self.PointAtSegmentLength(segmentlength)
+        normal = point.VectorTo(self.CentrePoint).Normalise()
+        return normal
 
-class Intersect:
-    def ByTwoVectorAndPoint(self, point1, vector1, point2, vector2):
-        dx = point2.x - point1.x
-        dy = point2.y - point2.x
-        det = (vector2.x * vector1.y) - (vector2.y * vector1.x)
-        u = ((dy * vector2.x) - (dx * vector2.y)) / det
-        v = ((dy * vector1.x) - (dx * vector1.y)) / det
-        if u < 0 and v < 0 :
-            return False, u, v
-        m0 = vector1.y / vector1.x
-        m1 = vector2.y / vector2.x
-        b0 = point1.y - (m0 * point1.x)
-        b1 = point2.y - (m1 * point2.x)
-        x = (b1 - b0) / (m0 - m1)
-        y = (m0 * x) + b0
-        return PointEntity(x,y)
+class PolyCurveEntity:
+    def __init__(self, curveset):
+        self.IsContinuous(curveset)
+    
+    def IsContinuous(self, curveset):
+        curveset
