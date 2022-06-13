@@ -117,30 +117,6 @@ class PointEntity:
         create = CreateEntity()
         return create.VectorByTwoPoints(self, point)
 
-
-class LineEntity:
-    def __init__(self, startpoint, endpoint):
-        self.StartPoint = startpoint
-        self.EndPoint = endpoint
-        self.Length = math.sqrt(
-            math.pow(
-                self.StartPoint.X-self.EndPoint.X,2)+
-                math.pow(self.StartPoint.Y-self.EndPoint.Y,2)
-            )
-
-    def __call__(self):
-        return [self.StartPoint, self.EndPoint]
-
-    def GetEndPoint(self, condition):
-        if condition == 0:
-            return self.StartPoint
-        elif condition == 1:
-            return self.EndPoint
-        elif condition == -1:
-            return self.__call__()
-        else:
-            raise ArgumentException("{} is not valid argument.".format(condition))
-
 class VectorEntity:
     """
     Create Vector Instance by 2D Coordinates
@@ -186,9 +162,49 @@ class VectorEntity:
         v2_u = vector.Normalise()
         dot = Clip(v1_u.DotProduct(v2_u),-1,1)
         angle = math.acos(dot)
-        return angle if not isdegree else math.degrees(angle) 
+        return angle if not isdegree else math.degrees(angle)
     
+    def Reverse(self):
+        return VectorEntity(self.X * -1, self.Y * -1)
+    
+class LineEntity:
+    def __init__(self, startpoint, endpoint):
+        self.StartPoint = startpoint
+        self.EndPoint = endpoint
+        self.Length = math.sqrt(
+            math.pow(
+                self.StartPoint.X-self.EndPoint.X,2)+
+                math.pow(self.StartPoint.Y-self.EndPoint.Y,2)
+            )
+        self.Direction = VectorEntity(endpoint.X - startpoint.X, endpoint.Y - startpoint.Y)
 
+    def __call__(self):
+        return [self.StartPoint, self.EndPoint]
+
+    def GetEndPoint(self, condition):
+        if condition == 0:
+            return self.StartPoint
+        elif condition == 1:
+            return self.EndPoint
+        elif condition == -1:
+            return self.__call__()
+        else:
+            raise ArgumentException("{} is not valid argument.".format(condition))
+        
+    def GetPointAtSegmentLength(self, segmentlength):
+        try:
+            if segmentlength > self.Length:
+                raise ArgumentOutOfRangeException("Length {} is Out of Line Length (length <= {})".format(segmentlength, self.Length))
+        except ArgumentOutOfRangeException as e:
+            return "Error : {}".format(e)
+        ratio = segmentlength / self.Length
+        xt = ratio * (self.EndPoint.X - self.StartPoint.X)
+        yt = ratio * (self.EndPoint.Y - self.StartPoint.Y)
+        return PointEntity(self.StartPoint.X + xt, self.StartPoint.Y + yt)
+    
+    def GetNormalAtSegmentLength(self):
+        cross = VectorEntity(self.Direction.Y * -1, self.Direction.X * 1).Normalise()
+        return cross
 
 class ArcEntity:
     def __init__(self, startpoint, endpoint, centrepoint):
@@ -218,6 +234,11 @@ class ArcEntity:
         point = self.PointAtSegmentLength(segmentlength)
         normal = point.VectorTo(self.CentrePoint).Normalise()
         return normal
+    
+    def TangentAtSegmentLength(self, segmentlength):
+        norm = self.NormalAtSegmentLength(segmentlength)
+        cross = VectorEntity(-norm.Y*1 - 0*0, 0*0 + norm.X*1).Normalise()
+        return cross
 
 class PolyCurveEntity:
     def __init__(self, curveset):
