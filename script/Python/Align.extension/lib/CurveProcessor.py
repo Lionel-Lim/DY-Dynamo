@@ -1,5 +1,6 @@
 import math
 from collections import Iterable
+import operator
 
 def Flatten(x):
     if isinstance(x, Iterable):
@@ -245,4 +246,62 @@ class PolyCurveEntity:
         self.IsContinuous(curveset)
     
     def IsContinuous(self, curveset):
-        curveset
+        margin = 1
+
+        crvs = list(curveset)
+        endcurves = {}
+        crv_type = []
+        while crvs:
+            crv = crvs.pop()
+            edge = 0
+            end2start = False
+            for compare in curveset:
+                if crv.StartPoint.DistanceTo(compare.EndPoint) < margin:
+                    edge = edge+1
+                if crv.EndPoint.DistanceTo(compare.StartPoint) < margin:
+                    edge = edge+1
+                    end2start = True
+            if edge == 1:
+                endcurves['{}'.format(hash(crv))] = end2start
+        ee = sorted(endcurves.items(), key=operator.itemgetter(1))
+
+        # endpts = []
+        # for i in curveset:
+        #     endpts.append([i.StartPoint, i.EndPoint])
+        #     endpts = Flatten(endpts)
+        # uniquepoints = []
+        # key_set = []
+        # added_index=[]
+        # endedge_point = []
+        # for index, i in enumerate(endpts):
+        #     key_set.append([])
+        #     for j in endpts:
+        #         key_set[index].append(i.DistanceTo(j))
+        # for index1, key_lst in enumerate(key_set):
+        #     isadded = False
+        #     edge = 0
+        #     for index2, key in enumerate(key_lst):
+        #         if key < margin and index2 not in added_index and not isadded:
+        #             uniquepoints.append(endpts[index1])
+        #             added_index.append(index2)
+        #             isadded = True
+        #             edge = edge + 1
+        #         elif key < margin and isadded:
+        #             added_index.append(index2)
+        #             edge = edge + 1
+        #     if edge == 1:
+        #         endedge_point.append(endpts[index1])
+
+        # compare_point = endedge_point[0]
+        # sorted = [compare_point]
+        # uniquepoints.remove(compare_point)
+        # while uniquepoints:
+        #     key = []
+        #     for i in uniquepoints:
+        #         key.append(compare_point.DistanceTo(i))
+        #     for index, j in enumerate(key):
+        #         if min(key) == j:
+        #             compare_point = uniquepoints[index]
+        #             sorted.append(uniquepoints[index])
+        #             uniquepoints.pop(index)
+        return ee

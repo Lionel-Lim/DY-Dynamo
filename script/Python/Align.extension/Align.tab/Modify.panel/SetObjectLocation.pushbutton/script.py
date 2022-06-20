@@ -10,6 +10,7 @@ clr.AddReference('revitAPIUI')
 from Autodesk.Revit.UI.Selection import ObjectType
 from Autodesk.Revit.UI import TaskDialog
 from Autodesk.Revit.DB import *
+from Autodesk.Revit import Exceptions
 
 app = __revit__.Application
 doc = __revit__.ActiveUIDocument.Document
@@ -51,10 +52,14 @@ def getBuiltInCategory(element):
 def pickObject(multiple = False):
     pickedElem=[]
     # __window__.Hide()
-    if multiple:
-        pickedRef = uidoc.Selection.PickObjects(ObjectType.Element,'Pick Objects')
-    else:
-        pickedRef = uidoc.Selection.PickObject(ObjectType.Element,'Pick Object')
+    try:
+        if multiple:
+            pickedRef = uidoc.Selection.PickObjects(ObjectType.Element,'Pick Objects')
+        else:
+            pickedRef = uidoc.Selection.PickObject(ObjectType.Element,'Pick Object')
+    except Exceptions.OperationCanceledException:
+        print("Pick Object Operation Cenceled")
+        sys.exit(1)
     # __window__.Show()
     # __window__.Topmost = True
     pickedRef = tolist(pickedRef)
@@ -117,6 +122,7 @@ message('Select element to be reference category.')
 obj_category = pickObject(False)
 message('Select element to be moved')
 obj_move = pickObject(True)
+selected_id = [i.Id.IntegerValue for i in obj_move]
 
 #########################Main Transaction Start########################
 t = Transaction(doc)
@@ -159,11 +165,11 @@ for index, pt_set in enumerate(pts_move):
         if len(projectedReference) == 0:
             message("Object must be within the target boundary. {}".format(obj_move[index].Name))
             t.Commit()
-            sys.exit()
+            sys.exit(1)
         else:
             for refContext in projectedReference:
                 ref = refContext.GetReference()
-                if not doc.GetElement(ref.ElementId).Id.IntegerValue == obj_move[index].Id.IntegerValue:
+                if not doc.GetElement(ref.ElementId).Id.IntegerValue in selected_id:
                     projectedPts.append(ref.GlobalPoint)
             # projectedPts = [ref.GetReference().GlobalPoint for ref in projectedReference if not doc.GetElement(ref.ElementId).Id.IntegerValue == ]
             highestProjection[index].append(max([coordinates.Z for coordinates in projectedPts]))
