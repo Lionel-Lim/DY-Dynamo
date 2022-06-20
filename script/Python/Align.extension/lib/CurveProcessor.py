@@ -1,6 +1,5 @@
 import math
 from collections import Iterable
-import operator
 
 def Flatten(x):
     if isinstance(x, Iterable):
@@ -250,20 +249,30 @@ class PolyCurveEntity:
 
         crvs = list(curveset)
         endcurves = {}
-        crv_type = []
+        pts_all = []
         while crvs:
             crv = crvs.pop()
             edge = 0
             end2start = False
             for compare in curveset:
-                if crv.StartPoint.DistanceTo(compare.EndPoint) < margin:
+                if crv.StartPoint.DistanceTo(compare.EndPoint) <= margin:
                     edge = edge+1
-                if crv.EndPoint.DistanceTo(compare.StartPoint) < margin:
+                    if crv.StartPoint not in pts_all:
+                        pts_all.append(crv.StartPoint)
+                if crv.EndPoint.DistanceTo(compare.StartPoint) <= margin:
+                    if crv.EndPoint not in pts_all:
+                        pts_all.append(crv.EndPoint)
                     edge = edge+1
                     end2start = True
             if edge == 1:
-                endcurves['{}'.format(hash(crv))] = end2start
-        ee = sorted(endcurves.items(), key=operator.itemgetter(1))
+                if end2start == True:
+                    StartCurve = crv
+                else:
+                    EndCurve = crv
+        for i in curveset:
+            endpts.append([i.StartPoint, i.EndPoint])
+            endpts = Flatten(endpts)
+
 
         # endpts = []
         # for i in curveset:
@@ -304,4 +313,4 @@ class PolyCurveEntity:
         #             compare_point = uniquepoints[index]
         #             sorted.append(uniquepoints[index])
         #             uniquepoints.pop(index)
-        return ee
+        return pts_all, endpts
