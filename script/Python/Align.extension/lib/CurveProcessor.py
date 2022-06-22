@@ -7,6 +7,12 @@ def Flatten(x):
     else:
         return [x]
 
+def accumulate(list):
+    total = 0
+    for x in list:
+        total += x
+        yield total
+
 def Clip(value, min, max):
     """
     Clip (limit) the values in an array.
@@ -38,6 +44,56 @@ class Intersect:
         add_vector = vector1.Scale(t)
         intersect_point = add_vector.Add(point1)
         return intersect_point
+
+    def ByArcAndLine(self, arc, line, full_line=False, tangent_tol=1e-9):
+        """ 
+        Find the points at which a Arc intersects a line-segment.  This can happen at 0, 1, or 2 points.
+        Args:
+            Arc : ArcEntity
+            Line : LineEntity
+            param full_line: True to find intersections along full line - not just in the segment.  False will just return intersections within the segment.
+            param tangent_tol: Numerical tolerance at which we decide the intersections are close enough to consider it a tangent
+            return [Point Entity] : A list of length 0, 1, or 2, where each element is a point at which the circle intercepts a line segment.
+
+        Note: We follow: http://mathworld.wolfram.com/Circle-LineIntersection.html
+        """
+        create = CreateEntity()
+        circle_centre, circle_radius = arc.CentrePoint, arc.Radius
+        pt1, pt2 = line.StartPoint, line.EndPoint
+        p1x, p1y = pt1.X, pt1.Y
+        p2x, p2y = pt2.X, pt2.Y
+        cx, cy = circle_centre.X, circle_centre.Y
+        x1, y1 = p1x - cx, p1y - cy
+        x2, y2 = p2x - cx, p2y - cy
+        dx, dy = x2 - x1, y2 - y1
+        dr = math.pow((math.pow(dx, 2) + math.pow(dy, 2)), 0.5)
+        big_d = (x1 * y2) - (x2 * y1)
+        discriminant = (math.pow(circle_radius, 2) * math.pow(dr, 2)) - math.pow(big_d, 2)
+        # return discriminant
+        if discriminant < 0:  # No intersection between circle and line
+            return []
+        else:  # There may be 0, 1, or 2 intersections with the segment
+            intersections_all = [
+                (cx + (big_d * dy + sign * (-1 if dy < 0 else 1) * dx * math.pow(discriminant, 0.5)) / math.pow(dr, 2),
+                cy + (-big_d * dx + sign * abs(dy) * math.pow(discriminant, .5)) / math.pow(dr, 2))
+                for sign in ((1, -1) if dy < 0 else (-1, 1))]  # This makes sure the order along the segment is correct
+            if not full_line:  # If only considering the segment, filter out intersections that do not fall within the segment
+                fraction_along_segment = [(xi - p1x) / dx if abs(dx) > abs(dy) else (yi - p1y) / dy for xi, yi in intersections_all]
+                intersections_all = [pt for pt, frac in zip(intersections_all, fraction_along_segment) if 0 <= frac <= 1]
+            # if len(intersections) == 2 and abs(discriminant) <= tangent_tol:  # If line is tangent to circle, return just one point (as both intersections have same location)
+            #     return [intersections[0]]
+            # else:
+            #     return intersections
+            if len(intersections_all) == 2 and abs(discriminant) <= tangent_tol:  # If line is tangent to circle, return just one point (as both intersections have same location)
+                intersections_all = [intersections_all[0]]
+            intersection_points = [PointEntity(fig[0], fig[1]) for fig in intersections_all]
+            intersection_vectors = [create.VectorByTwoPoints(arc.CentrePoint, pt) for pt in intersection_points]
+            cen2start = create.VectorByTwoPoints(arc.CentrePoint, arc.StartPoint)
+            angle = [cen2start.AngleTo(vec, True) for vec in intersection_vectors]
+            for index in range(len(angle)):
+                if angle[index] < 0:
+                    intersection_points.pop(index)
+            return intersection_points
 
 class CreateEntity:
     def VectorByTwoPoints(self, point_first, point_second):
@@ -157,12 +213,20 @@ class VectorEntity:
         """
         Returns the angle(Radian) between this vector and the input vector.
         Set bool to True if the output is to be Degree, else Radian
+        Degree [0, 360]
         """
-        v1_u = self.Normalise()
-        v2_u = vector.Normalise()
-        dot = Clip(v1_u.DotProduct(v2_u),-1,1)
-        angle = math.acos(dot)
-        return angle if not isdegree else math.degrees(angle)
+        ref = self.Normalise()
+        measure = vector.Normalise()
+        dot = ref.DotProduct(measure)
+        cross = ref.CrossProduct(measure)
+        radian = -math.atan2(cross, dot)
+        return radian if not isdegree else math.degrees(radian)
+        #Only Between [0:180]
+        # v1_u = self.Normalise()
+        # v2_u = vector.Normalise()
+        # dot = Clip(v1_u.DotProduct(v2_u),-1,1)
+        # angle = math.acos(dot)
+        # return angle if not isdegree else math.degrees(angle)
     
     def Reverse(self):
         return VectorEntity(self.X * -1, self.Y * -1)
@@ -177,9 +241,13 @@ class LineEntity:
                 math.pow(self.StartPoint.Y-self.EndPoint.Y,2)
             )
         self.Direction = VectorEntity(endpoint.X - startpoint.X, endpoint.Y - startpoint.Y)
+        self.Type = "Line"
 
     def __call__(self):
         return [self.StartPoint, self.EndPoint]
+    
+    def Reversed(self):
+        return LineEntity(self.EndPoint, self.StartPoint)
 
     def GetEndPoint(self, condition):
         if condition == 0:
@@ -191,7 +259,7 @@ class LineEntity:
         else:
             raise ArgumentException("{} is not valid argument.".format(condition))
         
-    def GetPointAtSegmentLength(self, segmentlength):
+    def PointAtSegmentLength(self, segmentlength):
         try:
             if segmentlength > self.Length:
                 raise ArgumentOutOfRangeException("Length {} is Out of Line Length (length <= {})".format(segmentlength, self.Length))
@@ -202,8 +270,8 @@ class LineEntity:
         yt = ratio * (self.EndPoint.Y - self.StartPoint.Y)
         return PointEntity(self.StartPoint.X + xt, self.StartPoint.Y + yt)
     
-    def GetNormalAtSegmentLength(self):
-        cross = VectorEntity(self.Direction.Y * -1, self.Direction.X * 1).Normalise()
+    def GetNormal(self):
+        cross = VectorEntity(self.Direction.Y * 1, self.Direction.X * -1).Normalise()
         return cross
 
 class ArcEntity:
@@ -218,6 +286,13 @@ class ArcEntity:
         self.Angle = self.__CTR2STRT.AngleTo(self.__CTR2END)
         self.Length = self.Radius * self.Angle
         self.__IsClockwise = False if self.__CTR2STRT.CrossProduct(self.__CTR2END) > 0 else True
+        self.Type = "Arc"
+    
+    def __call__(self):
+        return [self.StartPoint, self.EndPoint]
+
+    def Reversed(self):
+        return ArcEntity(self.EndPoint, self.StartPoint, self.CentrePoint)
         
     def PointAtSegmentLength(self, segmentlength):
         try:
@@ -241,38 +316,86 @@ class ArcEntity:
         return cross
 
 class PolyCurveEntity:
-    def __init__(self, curveset):
-        self.IsContinuous(curveset)
+    def __init__(self, curveset, tolerance=0.001):
+        self.Curves = curveset
+        self.Tolerance = tolerance
+        self.IsValid = self.IsContinuous(curveset, tolerance)
+        self.Length = sum([crv.Length for crv in self.Curves])
     
-    def IsContinuous(self, curveset):
-        margin = 1
-
+    def IsContinuous(self, curveset, tolerance=0.001):
+        dist = []
         crvs = list(curveset)
-        endcurves = {}
-        pts_all = []
-        while crvs:
-            crv = crvs.pop()
-            edge = 0
-            end2start = False
-            for compare in curveset:
-                if crv.StartPoint.DistanceTo(compare.EndPoint) <= margin:
-                    edge = edge+1
-                    if crv.StartPoint not in pts_all:
-                        pts_all.append(crv.StartPoint)
-                if crv.EndPoint.DistanceTo(compare.StartPoint) <= margin:
-                    if crv.EndPoint not in pts_all:
-                        pts_all.append(crv.EndPoint)
-                    edge = edge+1
-                    end2start = True
-            if edge == 1:
-                if end2start == True:
-                    StartCurve = crv
+        for index in range(len(crvs)):
+            if index == len(crvs)-1:
+                return [True]
+            dist.append(crvs[index].EndPoint.DistanceTo(crvs[index+1].StartPoint))
+            if dist[index] >= tolerance:
+                return [False, index, dist[index]]
+        
+    def PointAtSegmentLength(self, segmentlength):
+        acc = list(accumulate([crv.Length for crv in self.Curves]))
+        acc.insert(0, 0)
+        for index in range(len(acc)):
+            try:
+                if segmentlength > self.Length:
+                    raise ArgumentOutOfRangeException("Length {} is Out of Polycurve Length (length <= {})".format(segmentlength, self.Length))
+            except ArgumentOutOfRangeException as e:
+                return "Error : {}".format(e)
+            if acc[index] <= segmentlength < acc[index+1]:
+                return self.Curves[index].PointAtSegmentLength(segmentlength-acc[index])
+    
+    def NormalAtSegmentLength(self, segmentlength):
+        acc = list(accumulate([crv.Length for crv in self.Curves]))
+        acc.insert(0, 0)
+        for index in range(len(acc)):
+            try:
+                if segmentlength > self.Length:
+                    raise ArgumentOutOfRangeException("Length {} is Out of Polycurve Length (length <= {})".format(segmentlength, self.Length))
+            except ArgumentOutOfRangeException as e:
+                return "Error : {}".format(e)
+            if acc[index] <= segmentlength < acc[index+1]:
+                if self.Curves[index].Type == "Line":
+                    return self.Curves[index].GetNormal()
                 else:
-                    EndCurve = crv
-        for i in curveset:
-            endpts.append([i.StartPoint, i.EndPoint])
-            endpts = Flatten(endpts)
+                    return self.Curves[index].NormalAtSegmentLength(segmentlength-acc[index])
 
+
+
+        # endcurves = []
+        # while crvs:
+        #     crv = crvs.pop()
+        #     edge = 0
+        #     reverse = False
+        #     possible_start = False
+        #     for compare in curveset:
+        #         if crv == compare:
+        #             continue
+        #         if crv.StartPoint.DistanceTo(compare.EndPoint) <= margin:
+        #             edge = edge+1
+        #         if crv.EndPoint.DistanceTo(compare.StartPoint) <= margin:
+        #             edge = edge+1
+        #             possible_start = True
+        #         if crv.StartPoint.DistanceTo(compare.StartPoint) <= margin:
+        #             edge = edge+1
+        #             reverse = True
+        #         if crv.EndPoint.DistanceTo(compare.EndPoint) <= margin:
+        #             edge = edge+1
+        #             reverse = True
+        #     if edge == 1:
+        #         if reverse == True:
+        #             endcurves.append([crv.Reversed(), possible_start])
+        #         else:
+        #             endcurves.append([crv, possible_start])
+        #     for index, crv in enumerate(endcurves):
+        #         if len(endcurves[0]) != 2:
+        #             return len(endcurves)
+        #         if crv[1]:
+        #             firstcurve = endcurves.pop(index)[0]
+        #             lastcurve = endcurves[0][0]
+                # elif id(crv[0]) < id(crv[1]):
+                #     firstcurve = crv[0]
+                #     lastcurve = crv[1]
+        # return firstcurve, lastcurve
 
         # endpts = []
         # for i in curveset:
@@ -313,4 +436,22 @@ class PolyCurveEntity:
         #             compare_point = uniquepoints[index]
         #             sorted.append(uniquepoints[index])
         #             uniquepoints.pop(index)
-        return pts_all, endpts
+        
+        # sorted_curves = []
+        # for pt in sorted:
+        #     for crv in curveset:
+        #         if crv.StartPoint.DistanceTo(pt) < margin:
+        #             sorted_curves.append(crv)
+        #             break
+        #         elif crv.EndPoint.DistanceTo(pt) < margin:
+        #             for added in sorted_curves:
+        #                 if crv.EndPoint.DistanceTo(added.StartPoint) < margin or crv.EndPoint.DistanceTo(added.EndPoint) < margin:
+        #                     break
+        #                 else:
+        #                     sorted_curves.append(crv.Reversed())
+        #                     break
+        #             break
+
+
+        # return sorted_curves, [a() for a in sorted]
+
