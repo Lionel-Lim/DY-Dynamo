@@ -91,9 +91,9 @@ class Intersect:
             cen2start = create.VectorByTwoPoints(arc.CentrePoint, arc.StartPoint)
             angle = [cen2start.AngleTo(vec, True) for vec in intersection_vectors]
             for index in range(len(angle)):
-                if angle[index] < 0:
+                if angle[index] > math.degrees(arc.Angle) or angle[index] < 0:
                     intersection_points.pop(index)
-            return intersection_points
+            return intersection_points, angle, math.degrees(arc.Angle)
 
 class CreateEntity:
     def VectorByTwoPoints(self, point_first, point_second):
