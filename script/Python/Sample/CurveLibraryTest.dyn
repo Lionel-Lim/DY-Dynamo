@@ -34,13 +34,11 @@
       "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
       "NodeType": "ExtensionNode",
       "InstanceId": [
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000a99",
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000afd",
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000b2e",
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000b8d",
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000bf1",
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000c6d",
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000d1d"
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000aa4",
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000b6f",
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000bbe",
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000c1f",
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000c95"
       ],
       "Id": "a891c5c1d56c431187597433f2aec6b5",
       "Inputs": [],
@@ -953,7 +951,7 @@
       "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
       "NodeType": "ExtensionNode",
       "InstanceId": [
-        "d616de2e-0663-4af3-8a25-081488ef1685-00000c6d"
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000c1f"
       ],
       "Id": "64d405ec4ce044ccb81f64376ae1cc35",
       "Inputs": [],
@@ -974,7 +972,7 @@
       "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
       "NodeType": "ExtensionNode",
       "InstanceId": [
-        "d616de2e-0663-4af3-8a25-081488ef1685-0000138e"
+        "efa75efc-ff91-498c-a251-7a836fe5d81d-00000ce4"
       ],
       "Id": "25147094db0d48949fd4cec14239d4ac",
       "Inputs": [],
@@ -994,7 +992,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\nsys.path.append('C:\\Users\\dlagu\\OneDrive\\Documents\\GitHub\\DY-Dynamo\\script\\Python\\Align.extension\\lib')\r\nimport CurveProcessor as CP\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\ncreate = CP.CreateEntity()\r\narc_pts = [CP.PointEntity(a[0],a[1]) for a in IN[0]]\r\narc = create.ArcByThreePoints(arc_pts[0], arc_pts[2], arc_pts[1])\r\nline_pts = [CP.PointEntity(a[0],a[1]) for a in IN[1]]\r\nline = CP.LineEntity(line_pts[0], line_pts[1])\r\n# Place your code below this line\r\ninter = CP.Intersect()\r\na = inter.ByCircleAndLine(arc, line, True)\r\n# Assign your output to the OUT variable.\r\nOUT = a",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\nsys.path.append('C:\\Users\\DY\\Documents\\GitHub\\DY-Dynamo\\script\\Python\\Align.extension\\lib')\r\nimport CurveProcessor as CP\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\ncreate = CP.CreateEntity()\r\narc_pts = [CP.PointEntity(a[0],a[1]) for a in IN[0]]\r\narc = create.ArcByThreePoints(arc_pts[0], arc_pts[2], arc_pts[1])\r\nline_pts = [CP.PointEntity(a[0],a[1]) for a in IN[1]]\r\nline = CP.LineEntity(line_pts[0], line_pts[1])\r\n# Place your code below this line\r\ninter = CP.Intersect()\r\na = inter.ByArcAndLine(arc, line, False)\r\n# Assign your output to the OUT variable.\r\nOUT = [b() for b in a[0]], a",
       "VariableInputPorts": true,
       "Id": "1e5b1a52ace740ceb53cc554cac6f211",
       "Inputs": [
@@ -1683,6 +1681,36 @@
       ],
       "Replication": "Disabled",
       "Description": "Makes a new list out of the given inputs"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "a[0];",
+      "Id": "4ac60492498a472b982c2710c0690fbb",
+      "Inputs": [
+        {
+          "Id": "468562d35cc149e0aa07f8fb9a665dc2",
+          "Name": "a",
+          "Description": "a",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "491e1c80b9eb45249660427e67415424",
+          "Name": "",
+          "Description": "Value of expression at line 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
     }
   ],
   "Connectors": [
@@ -1853,8 +1881,8 @@
     },
     {
       "Start": "dd8a973724a245f198fb826fad2b5d47",
-      "End": "b7c91374b9cd4a20a135e864bcf38d70",
-      "Id": "48e43adc08e94856997e906374a87f71"
+      "End": "468562d35cc149e0aa07f8fb9a665dc2",
+      "Id": "5a9f0dbdc76b4fe394aa11dcec1a28be"
     },
     {
       "Start": "a1bcaf2148fc4ecb83fbc995e09cbd75",
@@ -1909,7 +1937,7 @@
     {
       "Start": "007b7407988443ecbbd17e69165b5211",
       "End": "3b533af7218245da876946bc48fddf66",
-      "Id": "2329098a69f442e9a8868b6c4556a501"
+      "Id": "8a6d6ae45d1d4d89b88bd24e565635f4"
     },
     {
       "Start": "06121e9e7a084783a285af57b6bd09fb",
@@ -1945,6 +1973,11 @@
       "Start": "69cab6709b9a442499a2f00b5cabecdf",
       "End": "9d2fc734c34b4e0bb56f5da9ec91be83",
       "Id": "938be82e88a64c5281529837e6b57de9"
+    },
+    {
+      "Start": "491e1c80b9eb45249660427e67415424",
+      "End": "b7c91374b9cd4a20a135e864bcf38d70",
+      "Id": "4ca69910f72148aebafcb5bb95a2d64f"
     }
   ],
   "Dependencies": [
@@ -1968,7 +2001,7 @@
       "ScaleFactor": 1.0,
       "HasRunWithoutCrash": true,
       "IsVisibleInDynamoLibrary": true,
-      "Version": "2.3.2.15696",
+      "Version": "2.3.1.11775",
       "RunType": "Automatic",
       "RunPeriod": "1000"
     },
@@ -2262,8 +2295,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 4364.0873486280952,
-        "Y": 1244.3041357118097
+        "X": 4346.1288597067123,
+        "Y": 1280.8862427738848
       },
       {
         "ShowGeometry": true,
@@ -2272,8 +2305,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 4407.8066780518766,
-        "Y": 1043.2406273525944
+        "X": 4294.9587519146771,
+        "Y": 912.94476851174568
       },
       {
         "ShowGeometry": true,
@@ -2292,8 +2325,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 4650.1963260783805,
-        "Y": 967.66387226850225
+        "X": 4751.7196656960432,
+        "Y": 865.0206635077252
       },
       {
         "ShowGeometry": false,
@@ -2434,11 +2467,21 @@
         "Excluded": false,
         "X": 4141.7383493274838,
         "Y": 1346.1007900776303
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "4ac60492498a472b982c2710c0690fbb",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4630.5682700358693,
+        "Y": 836.06457278896085
       }
     ],
     "Annotations": [],
-    "X": -3692.3706566812048,
-    "Y": -645.30918803569261,
-    "Zoom": 0.92280386266313319
+    "X": -4166.13789718166,
+    "Y": -931.60502009409208,
+    "Zoom": 1.0023115017527031
   }
 }
