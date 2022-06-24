@@ -388,10 +388,10 @@ class PolyCurveEntity:
         crvs = list(curveset)
         for index in range(len(crvs)):
             if index == len(crvs)-1:
-                return [True]
+                return True
             dist.append(crvs[index].EndPoint.DistanceTo(crvs[index+1].StartPoint))
             if dist[index] >= tolerance:
-                return [False, index, dist[index]]
+                return False
         
     def PointAtSegmentLength(self, segmentlength):
         acc = list(Accumulate([crv.Length for crv in self.Curves]))

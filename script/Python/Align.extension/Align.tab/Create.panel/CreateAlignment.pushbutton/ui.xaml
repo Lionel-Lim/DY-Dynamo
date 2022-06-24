@@ -36,40 +36,92 @@
             <TabItem.Header>
                 <TextBlock Text="Horizontal Alignment"/>
             </TabItem.Header>
-            <Grid Height="400">
+            <Grid Height="600">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="0.4*"/>
-                    <RowDefinition Height="2*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="0.5*"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="0.3*"/>
                 </Grid.ColumnDefinitions>
-                <DataGrid x:Name="HorizontalCurveTable"
-                          Grid.Row="0" Grid.ColumnSpan="2"
+                <DataGrid x:Name="HorizontalAlignmentTable"
+                          Grid.Row="0" ColumnWidth="*" Grid.ColumnSpan="2"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False">
+                          AutoGenerateColumns="False" IsReadOnly="False">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Index"/>
-                        <DataGridTextColumn Header="Curve Type"/>
-                        <DataGridTextColumn Header="Length"/>
-                        <DataGridTextColumn Header="Radius"/>
-                        <DataGridTextColumn Header="Start Station"/>
-                        <DataGridTextColumn Header="End Station"/>
-                        <DataGridTextColumn Header="Direction"/>
+                        <DataGridTextColumn Header="Index" Binding="{Binding Index}" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Curve Type" Binding="{Binding CurveType}"/>
+                        <DataGridTextColumn Header="Start Station" Binding="{Binding StartStation}"/>
+                        <DataGridTextColumn Header="End Station" Binding="{Binding EndStation}"/>
+                        <DataGridTextColumn Header="Length" Binding="{Binding Length}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Direction" Binding="{Binding Direction}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Radius" Binding="{Binding Radius}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <Grid Grid.Row="1" Grid.Column="0">
-                    <StackPanel VerticalAlignment="Top" Orientation="Horizontal" Margin="0,10">
-                        <Button Content="Select Reference" Width="100" Click="selectRef"/>
-                        <Button Content="Set Curve" Width="100" Click="setCurve"/>
-                    </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="0"
+                            Orientation="Horizontal"
+                            Margin="10">
+                    <Button Content="Select Alignment" Click="selectHorzAlignment" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Delete" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Reverse Table" Width="100" Margin="0,0,10,0"/>
+                </StackPanel>
+                <Button Grid.Row="1" Grid.Column="1" Click="refreshHroz" Content="Refresh" Margin="10"/>
+                <Grid Grid.Row="2" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.5*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <RadioButton Grid.Row="0" Grid.Column="0"
+                                 VerticalAlignment="Center"
+                                 GroupName="PointMethod">
+                        Point By Curve
+                    </RadioButton>
+                    <RadioButton Grid.Row="1" Grid.Column="0"
+                                 VerticalContentAlignment="Center"
+                                 GroupName="PointMethod" IsChecked="True">
+                        Point By Interval
+                    </RadioButton>
+                    <Button Grid.Row="0" Grid.Column="1" Content="Select Model Curves" Margin="10"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="PBI_Interval" PreviewTextInput="NumberValidationTextBox"/>
+                    <Label Grid.Row="0" Grid.Column="2" Content="Selected Number of Curves"/>
+                    <Label Grid.Row="1" Grid.Column="2" x:Name="PBI_Num" Content="Number of Points"/>
                 </Grid>
-                <ListView x:Name="layerList" Grid.Column="0" Grid.Row="2" Height="100" VerticalAlignment="Top"/>
-                <TextBox x:Name="debugHorizontal" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="1" TextWrapping="Wrap"
-                          Margin="10,150,10,10" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+                <Button Grid.Row="2" Grid.Column="1" Content="Find Point on Alignment"
+                        Margin="10"/>
+                <DataGrid x:Name="SegmentTable"
+                          Grid.Row="3" ColumnWidth="*" Grid.ColumnSpan="1"
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          AutoGenerateColumns="False" IsReadOnly="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Index" Binding="{Binding index_horizontal}" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Station" Binding="{Binding station}"/>
+                        <DataGridTextColumn Header="Revit ID" Binding="{Binding revitId}"/>
+                        <DataGridTextColumn Header="Is Loaded" Binding="{Binding isLoaded}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Button Grid.Row="3" Grid.Column="1" Content="To Revit"
+                        Margin="10"/>
+                <TextBox x:Name="HorizontalLog" Grid.Row="4" Grid.Column="0" TextWrapping="Wrap"
+                         IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+                <Grid Grid.Row="4" Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="Import" Margin="10,5,5,5"/>
+                    <Button Grid.Column="1" Content="Export" Margin="5,5,10,5"/>
+                </Grid>
             </Grid>
         </TabItem>
         <TabItem>

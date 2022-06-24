@@ -11,33 +11,47 @@ from rpw import revit, db, ui, DB, UI
 
 from rpw.exceptions import RevitExceptions
 from pyrevit.forms import WPFWindow
+from collections import Iterable
 
 from event import CustomizableEvent
 
 import verticalcurve
 import excel
+import geometry as factory
 
-
+"""
+General Information Start
+"""
 __doc__ = "Alignment Manager"
 __title__ = "Create Alignment Model"
 __author__ = "DY Lim"
 __persistentengine__ = True
-
-
+"""
+General Information End
+"""
+"""
+Global Variables Start
+"""
 curveType = ["Line", "Curve"]
-
 customizable_event = CustomizableEvent()
-
 selectCond= True
-_drawingRef=None
-
+updatedHorzAlignment = False
+horizAlignment = []
+interGeometry = []
+internal_alignment = False
+"""
+Global Variables End
+"""
+"""
+General Functions Start
+"""
 def debug(self, line):
     self.debug.Text = "{}\n{}".format(self.debug.Text, line)
     self.debug.ScrollToEnd()
 
 def debugHorizontal(self, line):
-    self.debugHorizontal.Text = "{}\n{}".format(self.debugHorizontal.Text, line)
-    self.debugHorizontal.ScrollToEnd()
+    self.HorizontalLog.Text = "{}\n{}".format(self.HorizontalLog.Text, line)
+    self.HorizontalLog.ScrollToEnd()
 
 def toFloat(input):
     try:
@@ -45,14 +59,35 @@ def toFloat(input):
     except:
         return None
 
-def select_element():
-    global _drawingRef
+def Flatten(x):
+    if isinstance(x, Iterable):
+        return [a for i in x for a in Flatten(i)]
+    else:
+        return [x]
+
+def ft2mm(ft):
+    return ft * 304.8
+"""
+General Functions End
+"""
+"""
+Revit API Methods Start
+"""
+def select_horizAlignment():
+    global horizAlignment, updatedHorzAlignment
     with db.Transaction("selection"):
-        ref = ui.Pick.pick_element("Select Reference").ElementId
-        _drawingRef = revit.doc.GetElement(ref)
-
-
-
+        ref = ui.Pick.pick_element("Select Reference", True)
+        try:
+            horizAlignment = [revit.doc.GetElement(r.ElementId) for r in ref]
+            updatedHorzAlignment = True
+        except:
+            updatedHorzAlignment = False
+"""
+Revit API Methods End
+"""
+"""
+WPF Data Table Format Start
+"""
 class verticalAlignmentFormat:
     def __init__(
         self,
@@ -72,22 +107,42 @@ class verticalAlignmentFormat:
         self._CurveLength = _CurveLength
         self._K = _K
 
-
+class horizontalAlignmentFormat:
+    def __init__(self, index, type, start, end, length, direction=None, radius=None):
+        self.Index = index
+        self.CurveType = type
+        self.StartStation = start
+        self.EndStation = end
+        self.Length = length
+        self.Direction = direction
+        self.Radius = radius
+"""
+WPF Data Table Format End
+"""
+"""
+Main Start From Here
+"""
 class form_window(WPFWindow):
     def __init__(self, xaml_file_name):
         WPFWindow.__init__(self, xaml_file_name)
         self.Show()
 
         self.VAContents = ObservableCollection[object]()
-        # self.VAContents.Add(verticalAlignmentFormat(0))
         self.VerticalCurveTable.ItemsSource = self.VAContents
+
+        self.HZContents = ObservableCollection[object]()
+        self.HorizontalAlignmentTable.ItemsSource = self.HZContents
 
         self.curveType = ObservableCollection[object]()
         [self.curveType.Add(ct) for ct in curveType]
         self.input_curveType.ItemsSource = self.curveType
 
         self.debug.Text = "Initializing Success\nWaiting Task..."
+        
 
+    """
+    Vertical Curve Interface
+    """
     def addrow(self, sender, e):
         curveTypeIndex = self.input_curveType.SelectedIndex
         lastIndex = 0
@@ -256,7 +311,9 @@ class form_window(WPFWindow):
                 yDist = float(pviElevEnd) - float(pviElevStart)
                 grade = math.atan(yDist / xDist) * 100
                 self.inputValue5.Text = str(grade)
-
+    """
+    External Data Import Interface
+    """
     def selectFile(self, sender, e):
         path = excel.file_picker()
 
@@ -377,58 +434,131 @@ class form_window(WPFWindow):
             #     debug(self, "Fail")
         else:
             debug(self, "Check Start and End Stations in General")
+    """
+    Horizontal Curve Interface
+    """
+    # def selectRef(self, sender, e):
+    #     # global selectCond
+    #     global _drawingRef
+    #     customizable_event.raise_event(select_element)
+    #     debugHorizontal(self,"slected is {}".format(_drawingRef))
+    #     try:
+    #         opt = DB.Options()
+    #         opt.ComputeReferences = True
+    #         opt.IncludeNonVisibleObjects = False
+    #         opt.View = revit.doc.ActiveView
+    #         geometry = _drawingRef.get_Geometry(opt)
+    #         debugHorizontal(self,"geometry:{}".format(geometry)) 
+    #         for elem in geometry:
+    #             self.objs = elem.GetInstanceGeometry()
+    #         debugHorizontal(self,"objs:{}".format(self.objs))  
+    #         self.layers = []
+    #         for obj in self.objs:
+    #             styleId = obj.GraphicsStyleId
+    #             style = revit.doc.GetElement(styleId)
+    #             try:
+    #                 self.layers.append(style.GraphicsStyleCategory.Name)
+    #             except:
+    #                 self.layers.append(None)
+    #         self.layers = list(set(self.layers))
+    #         self.layerList.ItemsSource = self.layers
+    #         debugHorizontal(self,"layers:{}".format(self.layers))
+    #     except:
+    #         debugHorizontal(self,"Fail")
     
-    def selectRef(self, sender, e):
-        # global selectCond
-        global _drawingRef
-        customizable_event.raise_event(select_element)
-        debugHorizontal(self,"slected is {}".format(_drawingRef))
-        try:
-            opt = DB.Options()
-            opt.ComputeReferences = True
-            opt.IncludeNonVisibleObjects = False
-            opt.View = revit.doc.ActiveView
-            geometry = _drawingRef.get_Geometry(opt)
-            debugHorizontal(self,"geometry:{}".format(geometry)) 
-            for elem in geometry:
-                self.objs = elem.GetInstanceGeometry()
-            debugHorizontal(self,"objs:{}".format(self.objs))  
-            self.layers = []
-            for obj in self.objs:
-                styleId = obj.GraphicsStyleId
-                style = revit.doc.GetElement(styleId)
-                try:
-                    self.layers.append(style.GraphicsStyleCategory.Name)
-                except:
-                    self.layers.append(None)
-            self.layers = list(set(self.layers))
-            self.layerList.ItemsSource = self.layers
-            debugHorizontal(self,"layers:{}".format(self.layers))
-        except:
-            debugHorizontal(self,"Fail")
+    def selectHorzAlignment(self, sender, e):
+        global updatedHorzAlignment, horizAlignment
+        customizable_event.raise_event(select_horizAlignment)
+        debugHorizontal(self, "Alignment Selected")
     
-    def setCurve(self, sender, e):
+    def refreshHroz(self, sender, e):
+        global updatedHorzAlignment, horizAlignment, interGeometry, internal_alignment
+        if updatedHorzAlignment == True:
+            try:
+                #Convert Model Curves to Geomtery
+                debugHorizontal(self,"Loaded {} Number of Curves".format(len(horizAlignment)))
+                opt = DB.Options()
+                opt.ComputeReferences = True
+                opt.IncludeNonVisibleObjects = False
+                opt.View = revit.doc.ActiveView
+                geometry = Flatten([elem.get_Geometry(opt) for elem in horizAlignment])
+                geometry = [g for g in geometry]
+                crvtype = [g.GetType().Name for g in geometry]
+                debugHorizontal(self,"Converted Geometry:{}".format(crvtype))
+                updatedHorzAlignment = False
+
+                #Convert Geometry into internal type
+                create = factory.CreateEntity()
+                for t, g in zip(crvtype, geometry):
+                    if t == "Line":
+                        tes = g.Tessellate()
+                        ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
+                        interGeometry.append(factory.LineEntity(ptEntity[0], ptEntity[1]))
+                    elif t == "Arc":
+                        tes = g.Tessellate()
+                        tes = Flatten([tes[0], tes[len(tes)-1], tes[int(len(tes)/2)]])
+                        ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
+                        interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
+                internal_alignment = factory.PolyCurveEntity(interGeometry)
+                if internal_alignment.IsValid:
+                    acc = list(factory.Accumulate([crv.Length for crv in internal_alignment.Curves]))
+                    acc.insert(0, 0)
+                    debugHorizontal(self,"Convert to Internal Geometry Success{}".format(internal_alignment.IsValid))
+                else:
+                    debugHorizontal(self,"Imported Curves are not continuous!")
+                    self.HZContents.Clear()
+                    return False
+
+                #Add Geometry into DataTable
+                lastIndex = 0
+                self.HZContents.Clear()
+                for i in self.HZContents:
+                    try:
+                        lastIndex = i.index
+                    except:
+                        continue
+                for index, (t, geo) in enumerate(zip(crvtype, interGeometry)):
+                    self.HZContents.Add(horizontalAlignmentFormat(lastIndex, t, acc[index], acc[index+1], geo.Length))
+                    lastIndex = lastIndex + 1
+            except:
+                debugHorizontal(self,"Loading Horizontal Alignment Failed")
+        else:
+            debugHorizontal(self,"Horizontal Alignment is not updated.")
+            
+    def NumberValidationTextBox(self, sender, e):
+        global internal_alignment
         try:
-            index = self.layerList.SelectedIndex
-            debugHorizontal(self,"index{}".format(index))
-            layers = self.layers
-            objs = self.objs
-            selectedCurves = []
-            hash = []
-            for obj in objs:
-                styleId = obj.GraphicsStyleId
-                style = revit.doc.GetElement(styleId)
-                try:
-                    if style.GraphicsStyleCategory.Name == layers[index]:
-                        selectedCurves.append(obj)
-                        hash.append(obj.GetHashCode())
-                except:
-                    False
-            list1, list2 = (list(t) for t in zip(*sorted(zip(hash, selectedCurves))))
-            debugHorizontal(self,"curvenumber:{}".format(selectedCurves))
-            debugHorizontal(self,"sorted:{}".format(list2))
+            float(e.Text)
+            e.Handled = False
+            # self.PBI_Num.Content = str(round(internal_alignment.Length / float(self.PBI_Interval.Text),0))
+            self.PBI_Num.Content = "{}".format(self.PBI_Interval.Text)
         except:
-            debugHorizontal(self,"Fail")
+            if e.Text == ".":
+                e.Handled = False
+            else:
+                e.Handled = True
+    # def setCurve(self, sender, e):
+    #     try:
+    #         index = self.layerList.SelectedIndex
+    #         debugHorizontal(self,"index{}".format(index))
+    #         layers = self.layers
+    #         objs = self.objs
+    #         selectedCurves = []
+    #         hash = []
+    #         for obj in objs:
+    #             styleId = obj.GraphicsStyleId
+    #             style = revit.doc.GetElement(styleId)
+    #             try:
+    #                 if style.GraphicsStyleCategory.Name == layers[index]:
+    #                     selectedCurves.append(obj)
+    #                     hash.append(obj.GetHashCode())
+    #             except:
+    #                 False
+    #         list1, list2 = (list(t) for t in zip(*sorted(zip(hash, selectedCurves))))
+    #         debugHorizontal(self,"curvenumber:{}".format(selectedCurves))
+    #         debugHorizontal(self,"sorted:{}".format(list2))
+    #     except:
+    #         debugHorizontal(self,"Fail")
         
 
 
