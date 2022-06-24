@@ -7,7 +7,7 @@ def Flatten(x):
     else:
         return [x]
 
-def accumulate(list):
+def Accumulate(list):
     total = 0
     for x in list:
         total += x
@@ -19,6 +19,12 @@ def Clip(value, min, max):
     For example, if an interval of [0, 1] is specified, values smaller than 0 become 0, and values larger than 1 become 1.
     """
     return min if value < min else max if value > max else value
+
+def IsClose(val1, val2, tolerance=0.000001):
+    if abs(val1-val2) <= tolerance:
+        return True
+    else:
+        return False
 
 class ArgumentOutOfRangeException(Exception):
     def __init__(self, msg):
@@ -34,6 +40,9 @@ class ArgumentException(Exception):
 
 class Intersect:
     def ByTwoVectorAndPoint(self, point1, vector1, point2, vector2):
+        """
+        Project two rays from Points to Vector directions and Find a point.
+        """
         vector1 = vector1.Normalise()
         vector2 = vector2.Normalise()
         create = CreateEntity()
@@ -45,6 +54,29 @@ class Intersect:
         intersect_point = add_vector.Add(point1)
         return intersect_point
 
+    def ByTwoLines(self, line1, line2):
+        """
+        Find a point at intersection of two lines
+        return 0 : Lines are parallel.
+        return 1 : Lines are same.
+        return -1 : There is no intersection.
+        """
+        def discr(p1, p2, p3):
+            return (p3.Y - p1.Y) * (p2.X - p1.X) > (p2.Y - p1.Y) * (p3.X - p1.X)
+        a, b, c, d = line1.StartPoint, line1.EndPoint, line2.StartPoint, line2.EndPoint
+        slope1, slope2 = line1.Slope, line2.Slope
+        yint1, yint2 = line1.YIntcept, line2.YIntcept
+        px = (yint2 - yint1) / (slope1 - slope2)
+        py = (slope1 * px) + yint1
+        if slope1 == slope2:
+            if yint1 == yint2:
+                return 1
+            return 0
+        elif not(discr(a, c, d) != discr(b, c, d) and discr(a, b, c) != discr(a, b, d)):
+            return -1
+        else:
+            return PointEntity(px, py)
+
     def ByArcAndLine(self, arc, line, full_line=False, tangent_tol=1e-9):
         """ 
         Find the points at which a Arc intersects a line-segment.  This can happen at 0, 1, or 2 points.
@@ -54,6 +86,7 @@ class Intersect:
             param full_line: True to find intersections along full line - not just in the segment.  False will just return intersections within the segment.
             param tangent_tol: Numerical tolerance at which we decide the intersections are close enough to consider it a tangent
             return [Point Entity] : A list of length 0, 1, or 2, where each element is a point at which the circle intercepts a line segment.
+            return -1 : There is no intersection.
 
         Note: We follow: http://mathworld.wolfram.com/Circle-LineIntersection.html
         """
@@ -71,7 +104,7 @@ class Intersect:
         discriminant = (math.pow(circle_radius, 2) * math.pow(dr, 2)) - math.pow(big_d, 2)
         # return discriminant
         if discriminant < 0:  # No intersection between circle and line
-            return []
+            return [-1]
         else:  # There may be 0, 1, or 2 intersections with the segment
             intersections_all = [
                 (cx + (big_d * dy + sign * (-1 if dy < 0 else 1) * dx * math.pow(discriminant, 0.5)) / math.pow(dr, 2),
@@ -80,20 +113,25 @@ class Intersect:
             if not full_line:  # If only considering the segment, filter out intersections that do not fall within the segment
                 fraction_along_segment = [(xi - p1x) / dx if abs(dx) > abs(dy) else (yi - p1y) / dy for xi, yi in intersections_all]
                 intersections_all = [pt for pt, frac in zip(intersections_all, fraction_along_segment) if 0 <= frac <= 1]
-            # if len(intersections) == 2 and abs(discriminant) <= tangent_tol:  # If line is tangent to circle, return just one point (as both intersections have same location)
-            #     return [intersections[0]]
-            # else:
-            #     return intersections
             if len(intersections_all) == 2 and abs(discriminant) <= tangent_tol:  # If line is tangent to circle, return just one point (as both intersections have same location)
                 intersections_all = [intersections_all[0]]
             intersection_points = [PointEntity(fig[0], fig[1]) for fig in intersections_all]
             intersection_vectors = [create.VectorByTwoPoints(arc.CentrePoint, pt) for pt in intersection_points]
             cen2start = create.VectorByTwoPoints(arc.CentrePoint, arc.StartPoint)
             angle = [cen2start.AngleTo(vec, True) for vec in intersection_vectors]
-            for index in range(len(angle)):
-                if angle[index] > math.degrees(arc.Angle) or angle[index] < 0:
-                    intersection_points.pop(index)
-            return intersection_points, angle, math.degrees(arc.Angle)
+            result = []
+            # return angle, math.degrees(arc.Angle)
+            if len(intersections_all)==0:
+                return [-1]
+            while angle:
+                compare = angle.pop()
+                point = intersection_points.pop()
+                clockwise = -1 if arc.Angle < 0 else 1
+                if (0 <= compare * clockwise <= math.degrees(arc.Angle) * clockwise):
+                    result.append(point)
+                else:
+                    result.append(-1)
+            return result
 
 class CreateEntity:
     def VectorByTwoPoints(self, point_first, point_second):
@@ -184,6 +222,7 @@ class VectorEntity:
         self.X = vector_x
         self.Y = vector_y
         self.Length = math.sqrt(math.pow(self.X,2)+math.pow(self.Y,2))
+        self.Slope = self.Y / self.X
     
     def __call__(self):
         return (self.X,self.Y)
@@ -235,12 +274,10 @@ class LineEntity:
     def __init__(self, startpoint, endpoint):
         self.StartPoint = startpoint
         self.EndPoint = endpoint
-        self.Length = math.sqrt(
-            math.pow(
-                self.StartPoint.X-self.EndPoint.X,2)+
-                math.pow(self.StartPoint.Y-self.EndPoint.Y,2)
-            )
+        self.Length = startpoint.DistanceTo(endpoint)
         self.Direction = VectorEntity(endpoint.X - startpoint.X, endpoint.Y - startpoint.Y)
+        self.Slope = (endpoint.Y - startpoint.Y) / (endpoint.X - startpoint.X)
+        self.YIntcept = -(self.Slope * startpoint.X) + startpoint.Y
         self.Type = "Line"
 
     def __call__(self):
@@ -248,6 +285,11 @@ class LineEntity:
     
     def Reversed(self):
         return LineEntity(self.EndPoint, self.StartPoint)
+
+    def IsInside(self, point):
+        create = CreateEntity()
+        direction = create.VectorByTwoPoints(self.StartPoint, point)
+        return IsClose(direction.Slope, self.Slope) and direction.Length <= self.Length
 
     def GetEndPoint(self, condition):
         if condition == 0:
@@ -269,6 +311,9 @@ class LineEntity:
         xt = ratio * (self.EndPoint.X - self.StartPoint.X)
         yt = ratio * (self.EndPoint.Y - self.StartPoint.Y)
         return PointEntity(self.StartPoint.X + xt, self.StartPoint.Y + yt)
+
+    def SegmentLengthAtPoint(self, point):
+        return self.StartPoint.DistanceTo(point)
     
     def GetNormal(self):
         cross = VectorEntity(self.Direction.Y * 1, self.Direction.X * -1).Normalise()
@@ -284,7 +329,7 @@ class ArcEntity:
         self.__CTR2STRT = create.VectorByTwoPoints(centrepoint, startpoint)
         self.__CTR2END = create.VectorByTwoPoints(centrepoint, endpoint)
         self.Angle = self.__CTR2STRT.AngleTo(self.__CTR2END)
-        self.Length = self.Radius * self.Angle
+        self.Length = self.Radius * abs(self.Angle)
         self.__IsClockwise = False if self.__CTR2STRT.CrossProduct(self.__CTR2END) > 0 else True
         self.Type = "Arc"
     
@@ -293,6 +338,16 @@ class ArcEntity:
 
     def Reversed(self):
         return ArcEntity(self.EndPoint, self.StartPoint, self.CentrePoint)
+    
+    def IsInside(self, point):
+        create = CreateEntity()
+        at_radius = IsClose(self.CentrePoint.DistanceTo(point), self.Radius)
+        angle = self.__CTR2STRT.AngleTo(create.VectorByTwoPoints(self.CentrePoint, point))
+        dir = 1 if self.__IsClockwise else -1
+        if (0 <= angle * dir <= self.Angle * dir) and at_radius:
+            return True
+        else:
+            return False
         
     def PointAtSegmentLength(self, segmentlength):
         try:
@@ -304,6 +359,12 @@ class ArcEntity:
         dir_rad = -rad if self.__IsClockwise else rad
         point = self.StartPoint.Rotate(self.CentrePoint, dir_rad)
         return point
+    
+    def SegmentLengthAtPoint(self, point):
+        create = CreateEntity()
+        angle = self.__CTR2STRT.AngleTo(create.VectorByTwoPoints(self.CentrePoint, point))
+        segmentlength = abs((math.pi * self.Radius * math.degrees(angle)) / 180)
+        return segmentlength
     
     def NormalAtSegmentLength(self, segmentlength):
         point = self.PointAtSegmentLength(segmentlength)
@@ -333,7 +394,7 @@ class PolyCurveEntity:
                 return [False, index, dist[index]]
         
     def PointAtSegmentLength(self, segmentlength):
-        acc = list(accumulate([crv.Length for crv in self.Curves]))
+        acc = list(Accumulate([crv.Length for crv in self.Curves]))
         acc.insert(0, 0)
         for index in range(len(acc)):
             try:
@@ -344,8 +405,16 @@ class PolyCurveEntity:
             if acc[index] <= segmentlength < acc[index+1]:
                 return self.Curves[index].PointAtSegmentLength(segmentlength-acc[index])
     
+    def SegmentLengthAtPoint(self, point):
+        acc = list(Accumulate([crv.Length for crv in self.Curves]))
+        acc.insert(0, 0)
+        for index, crv in enumerate(self.Curves):
+            if crv.IsInside(point):
+                return acc[index] + crv.SegmentLengthAtPoint(point), acc
+        return False
+    
     def NormalAtSegmentLength(self, segmentlength):
-        acc = list(accumulate([crv.Length for crv in self.Curves]))
+        acc = list(Accumulate([crv.Length for crv in self.Curves]))
         acc.insert(0, 0)
         for index in range(len(acc)):
             try:
@@ -359,99 +428,20 @@ class PolyCurveEntity:
                 else:
                     return self.Curves[index].NormalAtSegmentLength(segmentlength-acc[index])
 
-
-
-        # endcurves = []
-        # while crvs:
-        #     crv = crvs.pop()
-        #     edge = 0
-        #     reverse = False
-        #     possible_start = False
-        #     for compare in curveset:
-        #         if crv == compare:
-        #             continue
-        #         if crv.StartPoint.DistanceTo(compare.EndPoint) <= margin:
-        #             edge = edge+1
-        #         if crv.EndPoint.DistanceTo(compare.StartPoint) <= margin:
-        #             edge = edge+1
-        #             possible_start = True
-        #         if crv.StartPoint.DistanceTo(compare.StartPoint) <= margin:
-        #             edge = edge+1
-        #             reverse = True
-        #         if crv.EndPoint.DistanceTo(compare.EndPoint) <= margin:
-        #             edge = edge+1
-        #             reverse = True
-        #     if edge == 1:
-        #         if reverse == True:
-        #             endcurves.append([crv.Reversed(), possible_start])
-        #         else:
-        #             endcurves.append([crv, possible_start])
-        #     for index, crv in enumerate(endcurves):
-        #         if len(endcurves[0]) != 2:
-        #             return len(endcurves)
-        #         if crv[1]:
-        #             firstcurve = endcurves.pop(index)[0]
-        #             lastcurve = endcurves[0][0]
-                # elif id(crv[0]) < id(crv[1]):
-                #     firstcurve = crv[0]
-                #     lastcurve = crv[1]
-        # return firstcurve, lastcurve
-
-        # endpts = []
-        # for i in curveset:
-        #     endpts.append([i.StartPoint, i.EndPoint])
-        #     endpts = Flatten(endpts)
-        # uniquepoints = []
-        # key_set = []
-        # added_index=[]
-        # endedge_point = []
-        # for index, i in enumerate(endpts):
-        #     key_set.append([])
-        #     for j in endpts:
-        #         key_set[index].append(i.DistanceTo(j))
-        # for index1, key_lst in enumerate(key_set):
-        #     isadded = False
-        #     edge = 0
-        #     for index2, key in enumerate(key_lst):
-        #         if key < margin and index2 not in added_index and not isadded:
-        #             uniquepoints.append(endpts[index1])
-        #             added_index.append(index2)
-        #             isadded = True
-        #             edge = edge + 1
-        #         elif key < margin and isadded:
-        #             added_index.append(index2)
-        #             edge = edge + 1
-        #     if edge == 1:
-        #         endedge_point.append(endpts[index1])
-
-        # compare_point = endedge_point[0]
-        # sorted = [compare_point]
-        # uniquepoints.remove(compare_point)
-        # while uniquepoints:
-        #     key = []
-        #     for i in uniquepoints:
-        #         key.append(compare_point.DistanceTo(i))
-        #     for index, j in enumerate(key):
-        #         if min(key) == j:
-        #             compare_point = uniquepoints[index]
-        #             sorted.append(uniquepoints[index])
-        #             uniquepoints.pop(index)
-        
-        # sorted_curves = []
-        # for pt in sorted:
-        #     for crv in curveset:
-        #         if crv.StartPoint.DistanceTo(pt) < margin:
-        #             sorted_curves.append(crv)
-        #             break
-        #         elif crv.EndPoint.DistanceTo(pt) < margin:
-        #             for added in sorted_curves:
-        #                 if crv.EndPoint.DistanceTo(added.StartPoint) < margin or crv.EndPoint.DistanceTo(added.EndPoint) < margin:
-        #                     break
-        #                 else:
-        #                     sorted_curves.append(crv.Reversed())
-        #                     break
-        #             break
-
-
-        # return sorted_curves, [a() for a in sorted]
-
+    def IntersectWith(self, line):
+        intersect_point = []
+        result = []
+        intersect = Intersect()
+        for crv in self.Curves:
+            if crv.Type == "Line":
+                val = intersect.ByTwoLines(crv, line)
+            elif crv.Type == "Arc":
+                val = intersect.ByArcAndLine(crv, line)
+            else:
+                False
+            intersect_point.append(val)
+        intersect_point = Flatten(intersect_point)
+        for elem in intersect_point:
+            if elem.__class__.__name__ == "PointEntity":
+                result.append(elem)
+        return result
