@@ -71,9 +71,16 @@ def worksheet_by_name(workbook, name):
             return worksheet
 
 
-def file_picker():
+def file_picker(filter=True, location=False, name=False):
     dialog = OpenFileDialog()
-    dialog.Filter = "Excel Workbook|*.xlsx"
+    if filter:
+        dialog.Filter = "Excel Workbook|*.xlsx"
+    else:
+        dialog.Filter = "ALL|*.*"
+    if isinstance(location, str):
+        dialog.InitialDirectory = location
+    if isinstance(name, str):
+        dialog.FileName = name
     if dialog.ShowDialog():
         selectedFile = dialog.FileName
     return selectedFile

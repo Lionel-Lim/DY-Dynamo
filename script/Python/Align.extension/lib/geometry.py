@@ -382,6 +382,8 @@ class PolyCurveEntity:
         self.Tolerance = tolerance
         self.IsValid = self.IsContinuous(curveset, tolerance)
         self.Length = sum([crv.Length for crv in self.Curves])
+        self.StartPoint = curveset[0].StartPoint
+        self.EndPoint = curveset[-1].EndPoint
     
     def IsContinuous(self, curveset, tolerance=0.001):
         dist = []
@@ -410,7 +412,7 @@ class PolyCurveEntity:
         acc.insert(0, 0)
         for index, crv in enumerate(self.Curves):
             if crv.IsInside(point):
-                return acc[index] + crv.SegmentLengthAtPoint(point), acc
+                return acc[index] + crv.SegmentLengthAtPoint(point)
         return False
     
     def NormalAtSegmentLength(self, segmentlength):

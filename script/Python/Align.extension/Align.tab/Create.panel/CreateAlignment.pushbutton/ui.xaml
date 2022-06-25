@@ -100,22 +100,30 @@
                 </Grid>
                 <Button Grid.Row="2" Grid.Column="1" Content="Find Point on Alignment"
                         Click="Btn_FindPts" Margin="10"/>
-                <DataGrid x:Name="SegmentTable"
+                <DataGrid x:Name="HorizontalPointsTable"
                           Grid.Row="3" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutoGenerateColumns="False" IsReadOnly="False">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Index" Binding="{Binding index_horizontal}" IsReadOnly="True" />
-                        <DataGridTextColumn Header="Station" Binding="{Binding station}"/>
-                        <DataGridTextColumn Header="Revit ID" Binding="{Binding revitId}"/>
-                        <DataGridTextColumn Header="Is Loaded" Binding="{Binding isLoaded}"/>
+                        <DataGridTextColumn Header="Index" Binding="{Binding Index}" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
+                        <DataGridTextColumn Header="Revit ID" Binding="{Binding RevitID}"/>
+                        <DataGridTextColumn Header="Is Loaded" Binding="{Binding IsLoaded}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <Button Grid.Row="3" Grid.Column="1" Content="To Revit"
-                        Margin="10"/>
+                <Grid Grid.Row="3" Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Button Grid.Row="0" Content="Create Family"
+                        Click="CreatePoint" Margin="10"/>
+                    <Button Grid.Row="1" Content="To Revit Model"
+                        Click="ToDocument" Margin="10"/>
+                </Grid>
                 <TextBox x:Name="HorizontalLog" Grid.Row="4" Grid.Column="0" TextWrapping="Wrap"
-                         IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+                IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 <Grid Grid.Row="4" Grid.Column="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

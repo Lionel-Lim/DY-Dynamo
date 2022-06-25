@@ -41,6 +41,7 @@ interGeometry = []
 internal_alignment = False
 SubLines, updatedSubLines = [], False
 intersectionPoints = []
+ReferencePoint = []
 """
 Global Variables End
 """
@@ -94,6 +95,13 @@ def select_SubLines():
             updatedSubLines = True
         except:
             updatedSubLines = False
+
+def createReferencePoint(famdoc, points):
+    global ReferencePoint
+    with db.Transaction("Create Reference Points"):
+        for pt in points:
+            refPoint = famdoc.FamilyCreate.NewReferencePoint(DB.XYZ(pt.X * 0.00328084, pt.Y * 0.00328084, 0))
+            ReferencePoint.append(refPoint)
 """
 Revit API Methods End
 """
@@ -128,6 +136,13 @@ class horizontalAlignmentFormat:
         self.Length = length
         self.Direction = direction
         self.Radius = radius
+
+class horizontalPointTableFormat:
+    def __init__(self, index, station, revitID=None, isloaded=False):
+        self.Index = index
+        self.Station = station
+        self.RevitID = revitID
+        self.IsLoaded = isloaded
 """
 WPF Data Table Format End
 """
@@ -144,6 +159,9 @@ class form_window(WPFWindow):
 
         self.HZContents = ObservableCollection[object]()
         self.HorizontalAlignmentTable.ItemsSource = self.HZContents
+
+        self.PointContents = ObservableCollection[object]()
+        self.HorizontalPointsTable.ItemsSource = self.PointContents
 
         self.curveType = ObservableCollection[object]()
         [self.curveType.Add(ct) for ct in curveType]
@@ -327,14 +345,17 @@ class form_window(WPFWindow):
     External Data Import Interface
     """
     def selectFile(self, sender, e):
-        path = excel.file_picker()
+        try:
+            path = excel.file_picker()
 
-        self.app = excel.initialise()
-        self.workbook = self.app.Workbooks.Add(path)
-        self.sheet = [st.Name for st in self.workbook.Sheets]
+            self.app = excel.initialise()
+            self.workbook = self.app.Workbooks.Add(path)
+            self.sheet = [st.Name for st in self.workbook.Sheets]
 
-        self.path.Content = "File Path : {}".format(path)
-        self.sheetList.ItemsSource = self.sheet
+            self.path.Content = "File Path : {}".format(path)
+            self.sheetList.ItemsSource = self.sheet
+        except:
+            False
 
     def importSheetData(self, sender, e):
         selectedSheetIndex = self.sheetList.SelectedIndex
@@ -540,14 +561,13 @@ class form_window(WPFWindow):
                         return False
                 for i in intersect:
                     intersectionPoints.append(internal_alignment.IntersectWith(i))
+                    intersectionPoints = factory.Flatten(intersectionPoints)
                 self.NumIntCrv.Content = "Selected Number of Curves : \n{}".format(len(SubLines))
                 self.Pts_Num.Content = "Point Number : {} \nAlignment Length : {}".format(
                     len(intersectionPoints), internal_alignment.Length
                 )
             except:
                 debugHorizontal(self,"Loading Sub-Lines Failed")
-        else:
-            debugHorizontal(self,"Sub-Lines is not updated.")
         #After Refresh, disable the button until it is availale
         self.Refresh.IsEnabled = False
             
@@ -559,9 +579,11 @@ class form_window(WPFWindow):
     
     def CalculateNumOfPoints(self, sender, e):
         global internal_alignment
+        self.Btn_PBI.IsChecked = True
         try:
+            ptsNumber = internal_alignment.Length / float(self.PBI_Interval.Text)
             self.Pts_Num.Content = "Point Number : {} \nAlignment Length : {}".format(
-            round(internal_alignment.Length / float(self.PBI_Interval.Text),0), internal_alignment.Length
+            ptsNumber, internal_alignment.Length
             )
         except:
             False
@@ -589,11 +611,81 @@ class form_window(WPFWindow):
         debugHorizontal(self, "Sub-Lines Selected")
         
     def Btn_FindPts(self, sender, e):
+        global intersectionPoints, internal_alignment
         try:
-            True
+            lastIndex = 0
+            # self.PointsContents.Clear()
+            for i in self.PointContents:
+                try:
+                    lastIndex = i.Index
+                except:
+                    continue
+            #Point By Interval Type
+            if self.Btn_PBC.IsChecked:
+                for pt in intersectionPoints:
+                    station = internal_alignment.SegmentLengthAtPoint(pt)
+                    self.PointContents.Add(horizontalPointTableFormat(lastIndex, station))
+                    lastIndex = lastIndex + 1
+            elif self.Btn_PBI.IsChecked:
+                segLength = [0]
+                pointInterval = float(self.PBI_Interval.Text)
+                len = 0
+                alignment_Length = internal_alignment.Length
+                loop = True
+                while(loop):
+                    len = len + pointInterval
+                    if alignment_Length - len < pointInterval:
+                        len = alignment_Length
+                        loop = False
+                    segLength.append(len)
+                    if loop == False:
+                        intersectionPoints.append(internal_alignment.EndPoint)
+                    else:
+                        intersectionPoints.append(internal_alignment.PointAtSegmentLength(len))
+                for len in segLength:
+                    self.PointContents.Add(horizontalPointTableFormat(lastIndex, len))
+                    lastIndex = lastIndex + 1
+            debugHorizontal(self, "Station Table Updated.")
         except:
             debugHorizontal(self, "Find Intersection Points is failed.")
 
+    def CreatePoint(self, sender, e):
+        global intersectionPoints
+        try:
+            location = revit.app.FamilyTemplatePath
+            path = excel.file_picker(False, location, "Metric Generic Model Adaptive.rft")
+            self.famdoc = revit.doc.Application.NewFamilyDocument(path)
+            customizable_event.raise_event(createReferencePoint, self.famdoc, intersectionPoints)
+            debugHorizontal(self, "{}".format(path))
+        except:
+            debugHorizontal(self, "File Import Failed")
+            return False
+            # for pt in intersectionPoints:
+            #     refPoint = famdoc.FamilyCreate.NewReferencePoint(DB.XYZ(pt.X, pt.Y, 0))
+            #     Ref.append(refPoint)
+            #     debugHorizontal(self, "pass{}".format(Ref))
+
+    def ToDocument(self, sender, e):
+        global ReferencePoint
+        debugHorizontal(self, "{}".format(ReferencePoint))
+        class FamOpt1(DB.IFamilyLoadOptions):
+            def __init__(self):
+                pass
+            def OnFamilyFound(self,familyInUse, overwriteParameterValues):
+                return True
+            def OnSharedFamilyFound(self,familyInUse, source, overwriteParameterValues):
+                return True
+        try:
+            documentLocation = (revit.doc.PathName).Split('\\')
+            documentLocation = '{}{}'.format('\\'.join(map(str, documentLocation[0:-1])),'\\')
+            saveAsPath = "{}{}.rfa".format(documentLocation, "Alignment")
+            SaveAsOpt = DB.SaveAsOptions()
+            SaveAsOpt.OverwriteExistingFile = True
+            self.famdoc.SaveAs(saveAsPath, SaveAsOpt)
+            family1 = self.famdoc.LoadFamily(revit.doc, FamOpt1())
+        except:
+            return False
+        
         # global internal_alignment
         # try:
         #     float(e.Text)
