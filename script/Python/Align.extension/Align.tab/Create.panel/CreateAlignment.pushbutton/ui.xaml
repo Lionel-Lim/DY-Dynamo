@@ -70,8 +70,8 @@
                     <Button Content="Delete" Width="100" Margin="0,0,10,0"/>
                     <Button Content="Reverse Table" Width="100" Margin="0,0,10,0"/>
                 </StackPanel>
-                <Button Grid.Row="1" Grid.Column="1" Click="refreshHroz" Content="Refresh" Margin="10"/>
-                <Grid Grid.Row="2" Grid.Column="0">
+                <Button Grid.Row="1" Grid.Column="1" x:Name="Refresh" Click="refreshHroz" Content="Refresh" Margin="10" IsEnabled="False"/>
+                <Grid Grid.Row="2" Grid.Column="0" x:Name="Grd_PointBy" IsEnabled="False">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
@@ -81,23 +81,25 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <RadioButton Grid.Row="0" Grid.Column="0"
+                    <RadioButton Grid.Row="0" Grid.Column="0" x:Name="Btn_PBC"
                                  VerticalAlignment="Center"
-                                 GroupName="PointMethod">
+                                 GroupName="PointMethod" Checked="Btn_PBC_Checked">
                         Point By Curve
                     </RadioButton>
-                    <RadioButton Grid.Row="1" Grid.Column="0"
+                    <RadioButton Grid.Row="1" Grid.Column="0" x:Name="Btn_PBI"
                                  VerticalContentAlignment="Center"
-                                 GroupName="PointMethod" IsChecked="True">
+                                 GroupName="PointMethod" Checked="Btn_PBI_Checked">
                         Point By Interval
                     </RadioButton>
-                    <Button Grid.Row="0" Grid.Column="1" Content="Select Model Curves" Margin="10"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="PBI_Interval" PreviewTextInput="NumberValidationTextBox"/>
-                    <Label Grid.Row="0" Grid.Column="2" Content="Selected Number of Curves"/>
-                    <Label Grid.Row="1" Grid.Column="2" x:Name="PBI_Num" Content="Number of Points"/>
+                    <Button Grid.Row="0" Grid.Column="1" x:Name="PBC_Btn" Content="Select Model Curves" Margin="10"
+                            Click="BtnClk_PBC"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="PBI_Interval" Margin="10"
+                             PreviewTextInput="NumberValidationTextBox" TextChanged="CalculateNumOfPoints"/>
+                    <Label Grid.Row="0" Grid.Column="2" x:Name="NumIntCrv" Content="Selected Number of Curves"/>
+                    <Label Grid.Row="1" Grid.Column="2" x:Name="Pts_Num" Content="Number of Points"/>
                 </Grid>
                 <Button Grid.Row="2" Grid.Column="1" Content="Find Point on Alignment"
-                        Margin="10"/>
+                        Click="Btn_FindPts" Margin="10"/>
                 <DataGrid x:Name="SegmentTable"
                           Grid.Row="3" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"

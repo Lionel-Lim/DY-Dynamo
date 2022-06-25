@@ -1,4 +1,5 @@
 import math
+import re
 import clr
 
 clr.AddReference("PresentationCore")
@@ -35,10 +36,11 @@ Global Variables Start
 curveType = ["Line", "Curve"]
 customizable_event = CustomizableEvent()
 selectCond= True
-updatedHorzAlignment = False
-horizAlignment = []
+horizAlignment, updatedHorzAlignment = [], False
 interGeometry = []
 internal_alignment = False
+SubLines, updatedSubLines = [], False
+intersectionPoints = []
 """
 Global Variables End
 """
@@ -82,6 +84,16 @@ def select_horizAlignment():
             updatedHorzAlignment = True
         except:
             updatedHorzAlignment = False
+
+def select_SubLines():
+    global SubLines, updatedSubLines
+    with db.Transaction("selection"):
+        ref = ui.Pick.pick_element("Select Reference", True)
+        try:
+            SubLines = [revit.doc.GetElement(r.ElementId) for r in ref]
+            updatedSubLines = True
+        except:
+            updatedSubLines = False
 """
 Revit API Methods End
 """
@@ -437,42 +449,16 @@ class form_window(WPFWindow):
     """
     Horizontal Curve Interface
     """
-    # def selectRef(self, sender, e):
-    #     # global selectCond
-    #     global _drawingRef
-    #     customizable_event.raise_event(select_element)
-    #     debugHorizontal(self,"slected is {}".format(_drawingRef))
-    #     try:
-    #         opt = DB.Options()
-    #         opt.ComputeReferences = True
-    #         opt.IncludeNonVisibleObjects = False
-    #         opt.View = revit.doc.ActiveView
-    #         geometry = _drawingRef.get_Geometry(opt)
-    #         debugHorizontal(self,"geometry:{}".format(geometry)) 
-    #         for elem in geometry:
-    #             self.objs = elem.GetInstanceGeometry()
-    #         debugHorizontal(self,"objs:{}".format(self.objs))  
-    #         self.layers = []
-    #         for obj in self.objs:
-    #             styleId = obj.GraphicsStyleId
-    #             style = revit.doc.GetElement(styleId)
-    #             try:
-    #                 self.layers.append(style.GraphicsStyleCategory.Name)
-    #             except:
-    #                 self.layers.append(None)
-    #         self.layers = list(set(self.layers))
-    #         self.layerList.ItemsSource = self.layers
-    #         debugHorizontal(self,"layers:{}".format(self.layers))
-    #     except:
-    #         debugHorizontal(self,"Fail")
-    
     def selectHorzAlignment(self, sender, e):
         global updatedHorzAlignment, horizAlignment
         customizable_event.raise_event(select_horizAlignment)
+        self.Refresh.IsEnabled = True
         debugHorizontal(self, "Alignment Selected")
     
     def refreshHroz(self, sender, e):
-        global updatedHorzAlignment, horizAlignment, interGeometry, internal_alignment
+        global updatedHorzAlignment, horizAlignment, interGeometry, internal_alignment, SubLines, updatedSubLines, intersectionPoints
+        intersect = []
+        #Main Alignment Refresh Start
         if updatedHorzAlignment == True:
             try:
                 #Convert Model Curves to Geomtery
@@ -507,6 +493,7 @@ class form_window(WPFWindow):
                 else:
                     debugHorizontal(self,"Imported Curves are not continuous!")
                     self.HZContents.Clear()
+                    self.Refresh.IsEnabled = False
                     return False
 
                 #Add Geometry into DataTable
@@ -514,29 +501,110 @@ class form_window(WPFWindow):
                 self.HZContents.Clear()
                 for i in self.HZContents:
                     try:
-                        lastIndex = i.index
+                        lastIndex = i.Index
                     except:
                         continue
                 for index, (t, geo) in enumerate(zip(crvtype, interGeometry)):
                     self.HZContents.Add(horizontalAlignmentFormat(lastIndex, t, acc[index], acc[index+1], geo.Length))
                     lastIndex = lastIndex + 1
+                
+                self.Grd_PointBy.IsEnabled = True
             except:
                 debugHorizontal(self,"Loading Horizontal Alignment Failed")
         else:
             debugHorizontal(self,"Horizontal Alignment is not updated.")
+        #Sub Line Refresh Start
+        if updatedSubLines == True:
+            try:
+                #Convert Model Curves to Geomtery
+                debugHorizontal(self,"Loaded {} Number of Lines".format(len(SubLines)))
+                opt = DB.Options()
+                opt.ComputeReferences = True
+                opt.IncludeNonVisibleObjects = False
+                opt.View = revit.doc.ActiveView
+                geometry = Flatten([elem.get_Geometry(opt) for elem in SubLines])
+                geometry = [g for g in geometry]
+                crvtype = [g.GetType().Name for g in geometry]
+                updatedSubLines = False
+
+                #Convert Geometry into internal type
+                create = factory.CreateEntity()
+                for t, g in zip(crvtype, geometry):
+                    if t == "Line":
+                        tes = g.Tessellate()
+                        ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
+                        intersect.append(factory.LineEntity(ptEntity[0], ptEntity[1]))
+                    else:
+                        debugHorizontal(self,"Only Line type is supported.")
+                        self.Refresh.IsEnabled = False
+                        return False
+                for i in intersect:
+                    intersectionPoints.append(internal_alignment.IntersectWith(i))
+                self.NumIntCrv.Content = "Selected Number of Curves : \n{}".format(len(SubLines))
+                self.Pts_Num.Content = "Point Number : {} \nAlignment Length : {}".format(
+                    len(intersectionPoints), internal_alignment.Length
+                )
+            except:
+                debugHorizontal(self,"Loading Sub-Lines Failed")
+        else:
+            debugHorizontal(self,"Sub-Lines is not updated.")
+        #After Refresh, disable the button until it is availale
+        self.Refresh.IsEnabled = False
             
     def NumberValidationTextBox(self, sender, e):
+        if re.search("[^0-9.-]+", e.Text):
+            e.Handled = True
+        else:
+            e.Handled = False
+    
+    def CalculateNumOfPoints(self, sender, e):
         global internal_alignment
         try:
-            float(e.Text)
-            e.Handled = False
-            # self.PBI_Num.Content = str(round(internal_alignment.Length / float(self.PBI_Interval.Text),0))
-            self.PBI_Num.Content = "{}".format(self.PBI_Interval.Text)
+            self.Pts_Num.Content = "Point Number : {} \nAlignment Length : {}".format(
+            round(internal_alignment.Length / float(self.PBI_Interval.Text),0), internal_alignment.Length
+            )
         except:
-            if e.Text == ".":
-                e.Handled = False
-            else:
-                e.Handled = True
+            False
+    
+    def Btn_PBC_Checked(self, sender, e):
+        colour_grey = System.Windows.Media.Brushes.LightGray
+
+        self.PBI_Interval.Background = colour_grey
+        self.PBI_Interval.IsEnabled = False
+        self.PBI_Interval.Text = ""
+        self.PBC_Btn.IsEnabled = True
+
+    def Btn_PBI_Checked(self, sender, e):
+        colour_white = System.Windows.Media.Brushes.White
+
+        self.PBI_Interval.Background = colour_white
+        self.PBI_Interval.IsEnabled = True
+        self.PBC_Btn.IsEnabled = False
+
+    def BtnClk_PBC(self, sender, e):
+        global SubLines, updatedSubLines
+        customizable_event.raise_event(select_SubLines)
+        self.Btn_PBC.IsChecked = True
+        self.Refresh.IsEnabled = True
+        debugHorizontal(self, "Sub-Lines Selected")
+        
+    def Btn_FindPts(self, sender, e):
+        try:
+            True
+        except:
+            debugHorizontal(self, "Find Intersection Points is failed.")
+
+        # global internal_alignment
+        # try:
+        #     float(e.Text)
+        #     e.Handled = False
+        #     # self.PBI_Num.Content = str(round(internal_alignment.Length / float(self.PBI_Interval.Text),0))
+        #     self.PBI_Num.Content = "{}".format(self.PBI_Interval.Text)
+        # except:
+        #     if e.Text == ".":
+        #         e.Handled = False
+        #     else:
+        #         e.Handled = True
     # def setCurve(self, sender, e):
     #     try:
     #         index = self.layerList.SelectedIndex
