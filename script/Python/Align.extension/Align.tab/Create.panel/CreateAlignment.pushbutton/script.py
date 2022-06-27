@@ -42,6 +42,7 @@ internal_alignment = False
 SubLines, updatedSubLines = [], False
 intersectionPoints = []
 ReferencePoint = []
+verticalAlignment, updatedVertAlignment = [], False
 """
 Global Variables End
 """
@@ -106,6 +107,16 @@ def select_horizAlignment():
         except:
             updatedHorzAlignment = False
 
+def select_verticalAlignment(self):
+    global verticalAlignment, updatedVertAlignment
+    with db.Transaction("selection"):
+        ref = ui.Pick.pick_element("Select Alignment", False)
+        try:
+            verticalAlignment = revit.doc.GetElement(ref.ElementId)
+            updatedVertAlignment = True
+        except:
+            updatedVertAlignment = False
+
 def select_SubLines():
     global SubLines, updatedSubLines
     with db.Transaction("selection"):
@@ -118,7 +129,7 @@ def select_SubLines():
 
 def createReferencePoint(self, famdoc, points):
     try:
-        stations = [str(i.Station) for i in self.PointContents]
+        stations = [str(i.Station) for i in self.HorizontalPointContents]
         levelRef = get_levels(famdoc)[0].GetPlaneReference()
         ProjectLevelRef = get_levels(revit.doc)[0].GetPlaneReference()
         ids=[]
@@ -162,7 +173,7 @@ def createReferencePoint(self, famdoc, points):
         UI.TaskDialog.Show("Error", "Error while placing family : {}".format(e))
     
     try:
-        for i in self.PointContents:
+        for i in self.HorizontalPointContents:
             i.RevitID = ids[i.Index]
             i.IsLoaded = True
     except Exception as e:
@@ -191,6 +202,14 @@ class verticalAlignmentFormat:
         self._CurveType = _CurveType
         self._CurveLength = _CurveLength
         self._K = _K
+
+class verticalPointTableFormat:
+    def __init__(self, index, station, elevation=None, revitID=None, isloaded=False):
+        self.Index = index
+        self.Station = station
+        self.Elevation = elevation
+        self.RevitID = revitID
+        self.IsLoaded = isloaded
 
 class horizontalAlignmentFormat:
     def __init__(self, index, type, start, end, length, direction=None, radius=None):
@@ -222,11 +241,14 @@ class form_window(WPFWindow):
         self.VAContents = ObservableCollection[object]()
         self.VerticalCurveTable.ItemsSource = self.VAContents
 
+        self.VerticalPointContents = ObservableCollection[object]()
+        self.verticalPointTableFormat.ItemsSource = self.VerticalPointContents
+
         self.HZContents = ObservableCollection[object]()
         self.HorizontalAlignmentTable.ItemsSource = self.HZContents
 
-        self.PointContents = ObservableCollection[object]()
-        self.HorizontalPointsTable.ItemsSource = self.PointContents
+        self.HorizontalPointContents = ObservableCollection[object]()
+        self.HorizontalPointsTable.ItemsSource = self.HorizontalPointContents
 
         self.curveType = ObservableCollection[object]()
         [self.curveType.Add(ct) for ct in curveType]
@@ -532,6 +554,12 @@ class form_window(WPFWindow):
             #     debug(self, "Fail")
         else:
             debug(self, "Check Start and End Stations in General")
+    
+    def SelectAlignment(self, sender, e):
+        try:
+            True
+        except Exception as e:
+            False
     """
     Horizontal Curve Interface
     """
@@ -628,7 +656,7 @@ class form_window(WPFWindow):
                     intersectionPoints.append(internal_alignment.IntersectWith(i))
                     intersectionPoints = factory.Flatten(intersectionPoints)
                 self.NumIntCrv.Content = "Selected Number of Curves : \n{}".format(len(SubLines))
-                self.Pts_Num.Content = "Point Number : {} \nAlignment Length : {}".format(
+                self.Pts_Num.Content = "Number of Points : {} \nAlignment Length : {}".format(
                     len(intersectionPoints), internal_alignment.Length
                 )
             except:
@@ -680,7 +708,7 @@ class form_window(WPFWindow):
         try:
             lastIndex = 0
             # self.PointsContents.Clear()
-            for i in self.PointContents:
+            for i in self.HorizontalPointContents:
                 try:
                     lastIndex = i.Index
                 except:
@@ -689,7 +717,7 @@ class form_window(WPFWindow):
             if self.Btn_PBC.IsChecked:
                 for pt in intersectionPoints:
                     station = internal_alignment.SegmentLengthAtPoint(pt)
-                    self.PointContents.Add(horizontalPointTableFormat(lastIndex, station))
+                    self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, station))
                     lastIndex = lastIndex + 1
             elif self.Btn_PBI.IsChecked:
                 segLength = []
@@ -708,7 +736,7 @@ class form_window(WPFWindow):
                         intersectionPoints.append(internal_alignment.PointAtSegmentLength(len))
                     len = len + pointInterval
                 for len in segLength:
-                    self.PointContents.Add(horizontalPointTableFormat(lastIndex, len))
+                    self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, len))
                     lastIndex = lastIndex + 1
             debugHorizontal(self, "Station Table Updated.")
         except Exception as e:
