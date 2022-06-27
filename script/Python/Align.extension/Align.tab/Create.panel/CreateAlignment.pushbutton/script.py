@@ -76,6 +76,26 @@ General Functions End
 """
 Revit API Methods Start
 """
+class FamOpt1(DB.IFamilyLoadOptions):
+    def __init__(self):
+        pass
+    def OnFamilyFound(self,familyInUse, overwriteParameterValues):
+        return True
+    def OnSharedFamilyFound(self,familyInUse, source, overwriteParameterValues):
+        return True
+
+def get_levels(doc):
+    levels = DB.FilteredElementCollector(doc).OfClass(DB.Level).ToElements()
+    sortedLevels = sorted(levels,key=lambda level : level.Elevation, reverse=True)
+    # elevation = [ft2mm(i.Elevation) for i in sortedLevels]
+    return sortedLevels
+
+### WIP Convert to Survey Point based Coordinate
+# def get_PBPLocation():
+#     surveyPoint = DB.BasePoint.GetSurveyPoint(revit.doc).Position
+#     ProjectBasePoint = DB.BasePoint.GetProjectBasePoint(revit.doc).Position
+#     return DB.XYZ((0 - surveyPoint.X + ProjectBasePoint.X), (0 - surveyPoint.Y + ProjectBasePoint.Y), (0 - surveyPoint.Z + ProjectBasePoint.Z))
+
 def select_horizAlignment():
     global horizAlignment, updatedHorzAlignment
     with db.Transaction("selection"):
@@ -96,12 +116,57 @@ def select_SubLines():
         except:
             updatedSubLines = False
 
-def createReferencePoint(famdoc, points):
-    global ReferencePoint
+def createReferencePoint(self, famdoc, points):
+    try:
+        stations = [str(i.Station) for i in self.PointContents]
+        levelRef = get_levels(famdoc)[0].GetPlaneReference()
+        ProjectLevelRef = get_levels(revit.doc)[0].GetPlaneReference()
+        ids=[]
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "Get General Parameter Failed : {}".format(e))
+
     with db.Transaction("Create Reference Points"):
-        for pt in points:
-            refPoint = famdoc.FamilyCreate.NewReferencePoint(DB.XYZ(pt.X * 0.00328084, pt.Y * 0.00328084, 0))
-            ReferencePoint.append(refPoint)
+        try:
+            t = DB.Transaction(famdoc)
+            t.Start("Create Reference Point")
+            for s, pt in zip(stations, points):
+                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(pt.X * 0.00328084, pt.Y * 0.00328084, 0), DB.XYZ(1,0,0))
+                refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
+                refPoint.Visible = True
+                refPoint.Name = "{}/{}".format(s, refPoint.UniqueId)
+                ids.append(refPoint.UniqueId)
+            t.Commit()
+        except Exception as e:
+            UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
+            t.Commit()
+        try:
+            documentLocation = (revit.doc.PathName).Split('\\')
+            documentLocation = '{}{}'.format('\\'.join(map(str, documentLocation[0:-1])),'\\')
+            saveAsPath = "{}{}.rfa".format(documentLocation, "Alignment")
+            SaveAsOpt = DB.SaveAsOptions()
+            SaveAsOpt.OverwriteExistingFile = True
+            famdoc.SaveAs(saveAsPath, SaveAsOpt)
+        except Exception as e:
+            UI.TaskDialog.Show("Error", "Error while saving : {}".format(e))
+    family1 = famdoc.LoadFamily(revit.doc, FamOpt1())
+    famdoc.Close(False)
+    try:
+        familyType = [revit.doc.GetElement(id) for id in family1.GetFamilySymbolIds()]
+        with db.Transaction("Place Alignment into Project"):
+            familyType[0].Activate()
+            # revit.doc.Create.NewFamilyInstance(ProjectLevelRef, DB.XYZ(0,0,0), DB.XYZ(1,0,0), familyType[0])
+            e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, familyType[0])
+            e.Location.Point = DB.XYZ(0, 0, 0)
+            UI.TaskDialog.Show("Error", "Created : {}".format(e))
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "Error while placing family : {}".format(e))
+    
+    try:
+        for i in self.PointContents:
+            i.RevitID = ids[i.Index]
+            i.IsLoaded = True
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "Error while parsing data : {}".format(e))
 """
 Revit API Methods End
 """
@@ -627,13 +692,12 @@ class form_window(WPFWindow):
                     self.PointContents.Add(horizontalPointTableFormat(lastIndex, station))
                     lastIndex = lastIndex + 1
             elif self.Btn_PBI.IsChecked:
-                segLength = [0]
+                segLength = []
                 pointInterval = float(self.PBI_Interval.Text)
                 len = 0
                 alignment_Length = internal_alignment.Length
                 loop = True
                 while(loop):
-                    len = len + pointInterval
                     if alignment_Length - len < pointInterval:
                         len = alignment_Length
                         loop = False
@@ -642,12 +706,13 @@ class form_window(WPFWindow):
                         intersectionPoints.append(internal_alignment.EndPoint)
                     else:
                         intersectionPoints.append(internal_alignment.PointAtSegmentLength(len))
+                    len = len + pointInterval
                 for len in segLength:
                     self.PointContents.Add(horizontalPointTableFormat(lastIndex, len))
                     lastIndex = lastIndex + 1
             debugHorizontal(self, "Station Table Updated.")
-        except:
-            debugHorizontal(self, "Find Intersection Points is failed.")
+        except Exception as e:
+            debugHorizontal(self, "Find Intersection Points is failed. : {}".format(e))
 
     def CreatePoint(self, sender, e):
         global intersectionPoints
@@ -655,15 +720,10 @@ class form_window(WPFWindow):
             location = revit.app.FamilyTemplatePath
             path = excel.file_picker(False, location, "Metric Generic Model Adaptive.rft")
             self.famdoc = revit.doc.Application.NewFamilyDocument(path)
-            customizable_event.raise_event(createReferencePoint, self.famdoc, intersectionPoints)
+            customizable_event.raise_event(createReferencePoint, self, self.famdoc, intersectionPoints)
             debugHorizontal(self, "{}".format(path))
-        except:
-            debugHorizontal(self, "File Import Failed")
-            return False
-            # for pt in intersectionPoints:
-            #     refPoint = famdoc.FamilyCreate.NewReferencePoint(DB.XYZ(pt.X, pt.Y, 0))
-            #     Ref.append(refPoint)
-            #     debugHorizontal(self, "pass{}".format(Ref))
+        except Exception as e:
+            debugHorizontal(self, "File Import Failed : {}".format(e))
 
     def ToDocument(self, sender, e):
         global ReferencePoint
@@ -683,8 +743,9 @@ class form_window(WPFWindow):
             SaveAsOpt.OverwriteExistingFile = True
             self.famdoc.SaveAs(saveAsPath, SaveAsOpt)
             family1 = self.famdoc.LoadFamily(revit.doc, FamOpt1())
-        except:
-            return False
+            self.famdoc.Close(False)
+        except Exception as e:
+            debugHorizontal(self, "Error is {}".format(e))
         
         # global internal_alignment
         # try:

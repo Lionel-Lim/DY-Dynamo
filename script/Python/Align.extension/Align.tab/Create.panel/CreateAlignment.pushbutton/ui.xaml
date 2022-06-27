@@ -112,17 +112,9 @@
                         <DataGridTextColumn Header="Is Loaded" Binding="{Binding IsLoaded}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <Grid Grid.Row="3" Grid.Column="1">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <Button Grid.Row="0" Content="Create Family"
+                <Button Grid.Row="3" Grid.Column="1" Content="Create Horizontal Alignment"
                         Click="CreatePoint" Margin="10"/>
-                    <Button Grid.Row="1" Content="To Revit Model"
-                        Click="ToDocument" Margin="10"/>
-                </Grid>
-                <TextBox x:Name="HorizontalLog" Grid.Row="4" Grid.Column="0" TextWrapping="Wrap"
+                    <TextBox x:Name="HorizontalLog" Grid.Row="4" Grid.Column="0" TextWrapping="Wrap"
                 IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 <Grid Grid.Row="4" Grid.Column="1">
                     <Grid.ColumnDefinitions>
