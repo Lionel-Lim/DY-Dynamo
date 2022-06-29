@@ -107,8 +107,11 @@ class VerticalCurve:
             accumulatedStation = curvelength
         for station in stations:
             for index, acs in enumerate(accumulatedStation):
-                if accumulatedStation[index] <= station < accumulatedStation[index + 1]:
-                    group.append(index)
+                try:
+                    if accumulatedStation[index] <= station < accumulatedStation[index + 1]:
+                        group.append(index)
+                except:
+                    return station, accumulatedStation
         return group
 
     def ElevationAtStation(

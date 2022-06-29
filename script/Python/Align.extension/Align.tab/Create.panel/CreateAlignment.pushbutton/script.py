@@ -1,4 +1,6 @@
 import math
+import operator
+import random
 import re
 import clr
 
@@ -12,7 +14,7 @@ from rpw import revit, db, ui, DB, UI
 
 from rpw.exceptions import RevitExceptions
 from pyrevit.forms import WPFWindow
-from collections import Iterable
+from collections import Iterable, OrderedDict
 
 from event import CustomizableEvent
 
@@ -71,6 +73,9 @@ def Flatten(x):
 
 def ft2mm(ft):
     return ft * 304.8
+
+def mm2ft(mm):
+    return mm * 0.00328084
 """
 General Functions End
 """
@@ -114,6 +119,7 @@ def select_verticalAlignment(self):
         try:
             verticalAlignment = revit.doc.GetElement(ref.ElementId)
             updatedVertAlignment = True
+            self.Btn_VertRefresh.IsEnabled = True
         except:
             updatedVertAlignment = False
 
@@ -128,21 +134,23 @@ def select_SubLines():
             updatedSubLines = False
 
 def createReferencePoint(self, famdoc, points):
+    #Get General Parameters for next process
     try:
-        stations = [str(i.Station) for i in self.HorizontalPointContents]
+        displaystations = [str(i.Station) for i in self.HorizontalPointContents]
         levelRef = get_levels(famdoc)[0].GetPlaneReference()
-        ProjectLevelRef = get_levels(revit.doc)[0].GetPlaneReference()
         ids=[]
     except Exception as e:
         UI.TaskDialog.Show("Error", "Get General Parameter Failed : {}".format(e))
-
+    #Create Alignment Family and Assign properties to elements
     with db.Transaction("Create Reference Points"):
         try:
+            #This Transaction is for family document
             t = DB.Transaction(famdoc)
             t.Start("Create Reference Point")
-            for s, pt in zip(stations, points):
-                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(pt.X * 0.00328084, pt.Y * 0.00328084, 0), DB.XYZ(1,0,0))
+            for s, pt in zip(displaystations, points):
+                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(mm2ft(pt.X), mm2ft(pt.Y), 0), DB.XYZ(1,0,0))
                 refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
+                #Assign parameters
                 refPoint.Visible = True
                 refPoint.Name = "{}/{}".format(s, refPoint.UniqueId)
                 ids.append(refPoint.UniqueId)
@@ -161,23 +169,47 @@ def createReferencePoint(self, famdoc, points):
             UI.TaskDialog.Show("Error", "Error while saving : {}".format(e))
     family1 = famdoc.LoadFamily(revit.doc, FamOpt1())
     famdoc.Close(False)
+    #Place the alignment family to project
     try:
         familyType = [revit.doc.GetElement(id) for id in family1.GetFamilySymbolIds()]
         with db.Transaction("Place Alignment into Project"):
             familyType[0].Activate()
-            # revit.doc.Create.NewFamilyInstance(ProjectLevelRef, DB.XYZ(0,0,0), DB.XYZ(1,0,0), familyType[0])
             e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, familyType[0])
             e.Location.Point = DB.XYZ(0, 0, 0)
-            UI.TaskDialog.Show("Error", "Created : {}".format(e))
     except Exception as e:
         UI.TaskDialog.Show("Error", "Error while placing family : {}".format(e))
-    
+    #Assign data to interface datagrid
     try:
         for i in self.HorizontalPointContents:
             i.RevitID = ids[i.Index]
             i.IsLoaded = True
     except Exception as e:
         UI.TaskDialog.Show("Error", "Error while parsing data : {}".format(e))
+
+def setAlignmentParameter(parameter, value):
+    global verticalAlignment
+    try:
+        family = verticalAlignment.Symbol.Family
+        famdoc = revit.doc.EditFamily(family)
+        t = DB.Transaction(famdoc)
+
+        t.Start("Edit Parameter")
+        collector = DB.FilteredElementCollector(famdoc)
+        refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+        name = [e.Name.split("/") for e in refPoints]
+        data = {float(n[0]) : pt for pt, n in zip(refPoints, name)}
+        sortedData = sorted(data.items(), key=operator.itemgetter(0))
+        sortedData = OrderedDict(sortedData)
+        definition = [i.Definition for i in refPoints[0].Parameters if i.Definition.Name == parameter]
+        for v, val in zip(value, sortedData.values()):
+            val.Parameter[definition[0].BuiltInParameter].Set(mm2ft(v*1000))
+        t.Commit()
+
+        famdoc.Save()
+        family1 = famdoc.LoadFamily(revit.doc, FamOpt1())
+        famdoc.Close(False)
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "Error : {}".format(e))
 """
 Revit API Methods End
 """
@@ -242,7 +274,7 @@ class form_window(WPFWindow):
         self.VerticalCurveTable.ItemsSource = self.VAContents
 
         self.VerticalPointContents = ObservableCollection[object]()
-        self.verticalPointTableFormat.ItemsSource = self.VerticalPointContents
+        self.VerticalPointsTable.ItemsSource = self.VerticalPointContents
 
         self.HZContents = ObservableCollection[object]()
         self.HorizontalAlignmentTable.ItemsSource = self.HZContents
@@ -254,6 +286,8 @@ class form_window(WPFWindow):
         [self.curveType.Add(ct) for ct in curveType]
         self.input_curveType.ItemsSource = self.curveType
 
+        self.reverseHrozCrv = False
+
         self.debug.Text = "Initializing Success\nWaiting Task..."
         
 
@@ -262,18 +296,11 @@ class form_window(WPFWindow):
     """
     def addrow(self, sender, e):
         curveTypeIndex = self.input_curveType.SelectedIndex
-        lastIndex = 0
-        for i in self.VAContents:
-            try:
-                lastIndex = i.index
-            except:
-                continue
+        lastIndex = self.VAContents.Count - 1
         if curveTypeIndex == 0:
             if lastIndex != 0 and lastIndex % 2 == 0:
                 debug(self, "Item Must Be Line Type")
             else:
-                if lastIndex == 0:
-                    lastIndex = -1
                 grade = self.inputValue5.Text
                 self.VAContents.Add(
                     verticalAlignmentFormat(
@@ -287,7 +314,7 @@ class form_window(WPFWindow):
                     )
                 )
         elif curveTypeIndex == 1:
-            if lastIndex % 2 != 0:
+            if lastIndex % 2 == 1:
                 debug(self, "Item Must Be Curve Type")
             else:
                 pviStation = self.inputValue1.Text
@@ -307,7 +334,7 @@ class form_window(WPFWindow):
         else:
             debug(self, "Unidentified Curve Type")
         #
-        debug(self, "{} Row Added".format(lastIndex + 1))
+        debug(self, "{} Row Added".format(self.VAContents.Count - 1))
 
     def clearRow(self, sender, e):
         selectedIndex = self.VerticalCurveTable.SelectedIndex
@@ -321,21 +348,19 @@ class form_window(WPFWindow):
             debug(self, "{} Row Cleared".format(selectedIndex))
 
     def removeRow(self, sender, e):
-        index = self.VAContents.Count - 1
-        if index == 0:
-            debug(self, "Cannot Remove All")
-        else:
+        try:
+            index = self.VerticalCurveTable.SelectedIndex
             self.VAContents.RemoveAt(index)
             debug(self, "{} Row Removed".format(index))
-
-    def examineRow(self, sender, e):
-        selectedIndex = self.VerticalCurveTable.SelectedIndex
-        if selectedIndex == -1:
-            debug(self, "Please Select Row To Be Cleared".format(selectedIndex))
-        else:
-            val = self.VAContents.Item[selectedIndex].grade
-            type_val = self.VAContents.Item[selectedIndex]._CurveType
-            debug(self, "({},{})".format(val, type_val))
+        except ValueError:
+            try:
+                index = self.VAContents.Count - 1
+                self.VAContents.RemoveAt(index)
+                debug(self, "{} Row Removed".format(index))
+            except Exception:
+                debug(self, "Table is empty.")
+        except Exception as e:
+            debug(self, "Error : {}".format(e))
 
     def valueUpdated(self, sender, e):
         colour_grey = System.Windows.Media.Brushes.LightGray
@@ -431,7 +456,7 @@ class form_window(WPFWindow):
     """
     External Data Import Interface
     """
-    def selectFile(self, sender, e):
+    def ImportVertical(self, sender, e):
         try:
             path = excel.file_picker()
 
@@ -439,127 +464,188 @@ class form_window(WPFWindow):
             self.workbook = self.app.Workbooks.Add(path)
             self.sheet = [st.Name for st in self.workbook.Sheets]
 
-            self.path.Content = "File Path : {}".format(path)
-            self.sheetList.ItemsSource = self.sheet
+            sheets = {s : index for index, s in enumerate(self.sheet)}
+            value = ui.forms.SelectFromList("Select Sheet", sheets)
+            
+            selectedSheet = self.workbook.Sheets(self.sheet[value])
+            selectedRange = selectedSheet.UsedRange
+            values = []
+            rowCnt = selectedRange.Rows.Count
+            colCnt = selectedRange.Columns.Count
+            for row_py, row_excel in zip(range(rowCnt), range(1, rowCnt + 1)):
+                values.append([])
+                for col_excel in range(1, colCnt + 1):
+                    values[row_py].append(selectedRange.Cells(row_excel, col_excel).Value2)
+            debug(self, "{} Selected".format(self.sheet[value]))
+        except AttributeError:
+            debug(self, "Module Initialising Failed. Try Again.")
+        except Exception as e:
+            debug(self, "{}".format(e))
+        
+        try:
+            if "Vertical" in values[0][0]:
+                self.VAContents.Clear()
+                slope, curveLength, pviElevation, pviStation, seStation, sePercentage, curveType = [],[],[],[],[],[],[]
+                for row in range(1, rowCnt):
+                    if values[row][1] == None:
+                        break
+                    if row % 2 == 1:
+                        slope.append(values[row][1])
+                        curveLength.append(None)
+                        pviElevation.append(None)
+                        pviStation.append(None)
+                        curveType.append("Line")
+                    else:
+                        slope.append(None)
+                        curveLength.append(values[row][1])
+                        pviElevation.append(values[row][2])
+                        pviStation.append(values[row][3])
+                        curveType.append("Curve")
+                for row in range(1, rowCnt):
+                    seStation.append(values[row][4])
+                    sePercentage.append(values[row][5])
+
+                for index in range(len(slope)):
+                    self.VAContents.Add(
+                        verticalAlignmentFormat(
+                            index,
+                            pviStation[index],
+                            pviElevation[index],
+                            slope[index],
+                            curveType[index],
+                            curveLength[index],
+                            "",
+                        )
+                    )
+
+                self.stationStart.Text = str(seStation[0])
+                self.stationEnd.Text = str(seStation[-1])
+                debug(self, "Import Success")
+            else:
+                debug(self, "Not supported type")
+            excel.release(self.app)
+            self.app = ""
+        except Exception as e:
+            debug(self, "Error : {}".format(e))
+        
+        try:
+            excel.release(self.app)
+            self.app = ""
         except:
             False
 
-    def importSheetData(self, sender, e):
-        selectedSheetIndex = self.sheetList.SelectedIndex
-        selectedSheet = self.workbook.Sheets(self.sheet[selectedSheetIndex])
-
-        selectedRange = selectedSheet.UsedRange
-        values = []
-        rowCnt = selectedRange.Rows.Count
-        colCnt = selectedRange.Columns.Count
-        range(rowCnt)
-        for row_py, row_excel in zip(range(rowCnt), range(1, rowCnt + 1)):
-            values.append([])
-            for col_excel in range(1, colCnt + 1):
-                values[row_py].append(selectedRange.Cells(row_excel, col_excel).Value2)
-
-        if "Vertical" in values[0][0]:
-            isVerticalData = True
-        else:
-            isVerticalData = False
-
-        slope = []
-        curveLength = []
-        pviElevation = []
-        pviStation = []
-        seStation = []
-        sePercentage = []
-        curveType = []
-
-        if isVerticalData:
-            for row in range(1, rowCnt):
-                if row % 2 == 1:
-                    slope.append(values[row][1])
-                    curveLength.append(None)
-                    pviElevation.append(None)
-                    pviStation.append(None)
-                    curveType.append("Line")
-                else:
-                    slope.append(None)
-                    curveLength.append(values[row][1])
-                    pviElevation.append(values[row][2])
-                    pviStation.append(values[row][3])
-                    curveType.append("Curve")
-                seStation.append(values[row][4])
-                sePercentage.append(values[row][5])
-
-            for index in range(len(slope)):
-                self.VAContents.Add(
-                    verticalAlignmentFormat(
-                        index,
-                        pviStation[index],
-                        pviElevation[index],
-                        slope[index],
-                        curveType[index],
-                        curveLength[index],
-                        "",
-                    )
-                )
-
-            self.stationStart.Text = str(seStation[0])
-            self.stationEnd.Text = str(seStation[-1])
-            self.debug_external.Text = "{}\n{}".format(
-                self.debug_external.Text, "Import Success"
-            )
-        else:
-            self.debug_external.Text = "{}\n{}".format(
-                self.debug_external.Text, "Under Develop"
-            )
-
-        excel.release(self.app)
-
     def calculateRows(self, sender, e):
-        ss = self.stationStart.Text
-        se = self.stationEnd.Text
-        if ss != "" and se != "" and float(se) > float(ss):
-            self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
-            debug(self, "{}is loaded".format(self.VC))
-            
-            pviElevation = [toFloat(g.pviElevation) for g in self.VAContents]
-            curveType = [g._CurveType for g in self.VAContents]
-            grade = [toFloat(g.grade) for g in self.VAContents]
-            curveLength = [toFloat(g._CurveLength) for g in self.VAContents]
-            debug(self, "{} and {}".format(grade, curveLength))
-            pviStation = [toFloat(g.pviStation) for g in self.VAContents]
-            debug(self, "{}".format(pviStation))
-            isValidGrade = self.VC.isValidSlope(grade)
-            self.VC.CalculateLineTypeAndK(curveLength, grade)
-            k = self.VC._K
-            ltype = self.VC._CurveType
-            debug(self, "{} and {}".format(grade, isValidGrade))
-            debug(self, "{} and {}".format(k, ltype))
-            self.VC.CalculateCurveLength(pviStation, curveLength, grade)
-            debug(self, "Dummy")
-            calculatedCurveLength = self.VC._CurveLength
-            debug(self, "{}".format(calculatedCurveLength))
-            # try:
-            for index in range(self.VAContents.Count):
-                self.VAContents[index] = verticalAlignmentFormat(
-                    index,
-                    pviStation[index], 
-                    pviElevation[index],
-                    grade[index],
-                    curveType[index],
-                    calculatedCurveLength[index],
-                    k[index]
-                )
-            
-            # self.VC.RangeTypeAtStation(stations, curvelength, accumulationrequired=True)
-            # except:
-            #     debug(self, "Fail")
-        else:
-            debug(self, "Check Start and End Stations in General")
+        try:
+            ss = self.stationStart.Text
+            se = self.stationEnd.Text
+            if ss != "" and se != "" and float(se) > float(ss):
+                self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
+                debug(self, "{} is loaded".format(self.VC))
+                
+                self.pviElevation = [toFloat(g.pviElevation) for g in self.VAContents]   
+                self.curveType = [g._CurveType for g in self.VAContents]
+                self.grade = [toFloat(g.grade) for g in self.VAContents]
+                curveLength = [toFloat(g._CurveLength) for g in self.VAContents]
+                # debug(self, "{} and {}".format(grade, curveLength))
+                pviStation = [toFloat(g.pviStation) for g in self.VAContents]
+                # debug(self, "{}".format(pviStation))
+                # isValidGrade = self.VC.isValidSlope(grade)
+                self.VC.CalculateLineTypeAndK(curveLength, self.grade)
+                k = self.VC._K
+                ltype = self.VC._CurveType
+                # debug(self, "{} and {}".format(grade, isValidGrade))
+                # debug(self, "{} and {}".format(k, ltype))
+                self.VC.CalculateCurveLength(pviStation, curveLength, self.grade)
+                # debug(self, "Dummy")
+                self.calculatedCurveLength = self.VC._CurveLength
+                # debug(self, "{}".format(calculatedCurveLength))
+                # try:
+                for index in range(self.VAContents.Count):
+                    self.VAContents[index] = verticalAlignmentFormat(
+                        index,
+                        pviStation[index], 
+                        self.pviElevation[index],
+                        self.grade[index],
+                        self.curveType[index],
+                        self.calculatedCurveLength[index],
+                        k[index]
+                    )
+                self.MenuVerticalPoint.IsEnabled = True
+                debug(self, "Curve Length / K Added")
+            else:
+                debug(self, "Check Start and End Stations in General")
+        except Exception as e:
+            self.VAContents.Clear()
+            debug(self, "Error : {}".format(e))
     
     def SelectAlignment(self, sender, e):
         try:
-            True
+            customizable_event.raise_event(select_verticalAlignment, self)
+            debug(self, "Alignment Selected")
         except Exception as e:
-            False
+            debug(self, "Selection Failed")
+    
+    def VertRefresh(self, sender, e):
+        global verticalAlignment, updatedVertAlignment
+        if updatedVertAlignment == True:
+            try:
+                self.VerticalPointContents.Clear()
+                self.Btn_VertRefresh.IsEnabled = False
+                family = verticalAlignment.Symbol.Family
+                famdoc = revit.doc.EditFamily(family)
+                collector = DB.FilteredElementCollector(famdoc)
+                refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+                name = [e.Name.split("/") for e in refPoints]
+                data = {float(n[0]) : n[-1] for n in name}
+                sortedData = sorted(data.items(), key=operator.itemgetter(0))
+                sortedData = OrderedDict(sortedData)
+                famdoc.Close(False)
+                for index, (key, val) in enumerate(sortedData.items()):
+                    self.VerticalPointContents.Add(horizontalPointTableFormat(index, key, val, "Update Required"))
+                debug(self, "Import Alignment Data Success")
+            except Exception as e:
+                famdoc.Close(False)
+                debug(self, "Error : {}".format(e))
+    
+    def CalculateElevation(self, sender, e):
+        try:
+            stations = [i.Station for i in self.VerticalPointContents]
+            group = self.VC.RangeTypeAtStation(stations, self.calculatedCurveLength, accumulationrequired=True)
+            elevations = self.VC.ElevationAtStation(
+                group, stations, self.curveType, self.calculatedCurveLength, self.pviElevation, self.grade
+                )
+            for e, i in zip(elevations, self.VerticalPointContents):
+                i.Elevation = e
+            debug(self, "Elevation Calculated. Please Press Updated Alignment.")
+        except Exception as e:
+            debug(self, "Error : {}".format(e))
+
+    def LoadHorizontalPoints(self, sender, e):
+        global verticalAlignment
+        try:
+            elevations = [i.Elevation for i in self.VerticalPointContents]
+            customizable_event.raise_event(setAlignmentParameter, "Offset", elevations)
+            for i in self.VerticalPointContents:
+                i.IsLoaded = True
+            self.VerticalPointsTable.ItemsSource = None
+            self.VerticalPointsTable.ItemsSource = self.VerticalPointContents
+            debug(self, "Updated : Alignment Family")
+            # family = verticalAlignment.Symbol.Family
+            # famdoc = revit.doc.EditFamily(family)
+            # collector = DB.FilteredElementCollector(famdoc)
+            # refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+            # name = [e.Name.split("/") for e in refPoints]
+            # data = {float(n[0]) : refPoints[index] for index, n in enumerate(name)}
+            # sortedData = sorted(data.items(), key=operator.itemgetter(0))
+            # sortedData = OrderedDict(sortedData)
+            # for i, key, val in zip(self.VerticalPointContents, sortedData.items()):
+            #     val.Parameters("Offset").Set(i.Elevation)
+            #     i.IsLoaded = True
+            # famdoc.Save()
+            # family1 = famdoc.LoadFamily(revit.doc, FamOpt1())
+            # famdoc.Close(False)
+        except Exception as e:
+            debug(self, "Error : {}".format(e))
     """
     Horizontal Curve Interface
     """
@@ -569,10 +655,20 @@ class form_window(WPFWindow):
         self.Refresh.IsEnabled = True
         debugHorizontal(self, "Alignment Selected")
     
+    def ReverseHrozTable(self, sender, e):
+        global updatedHorzAlignment
+        self.reverseHrozCrv = True
+        self.Refresh.IsEnabled = True
+        updatedHorzAlignment = True
+        self.Btn_HorzReverse.IsEnabled = False
+    
     def refreshHroz(self, sender, e):
         global updatedHorzAlignment, horizAlignment, interGeometry, internal_alignment, SubLines, updatedSubLines, intersectionPoints
         intersect = []
         #Main Alignment Refresh Start
+        if self.stationStart.Text == "":
+            debugHorizontal(self,"Start Station is Required.")
+            return False
         if updatedHorzAlignment == True:
             try:
                 #Convert Model Curves to Geomtery
@@ -582,28 +678,39 @@ class form_window(WPFWindow):
                 opt.IncludeNonVisibleObjects = False
                 opt.View = revit.doc.ActiveView
                 geometry = Flatten([elem.get_Geometry(opt) for elem in horizAlignment])
-                geometry = [g for g in geometry]
+                if self.reverseHrozCrv:
+                    geometry = [g.CreateReversed() for g in geometry]
+                    geometry.reverse()
+                else:
+                    geometry = [g for g in geometry]
                 crvtype = [g.GetType().Name for g in geometry]
                 debugHorizontal(self,"Converted Geometry:{}".format(crvtype))
                 updatedHorzAlignment = False
 
                 #Convert Geometry into internal type
                 create = factory.CreateEntity()
+                interGeometry = []
+                debugHorizontal(self,"Passed2")
                 for t, g in zip(crvtype, geometry):
                     if t == "Line":
                         tes = g.Tessellate()
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(factory.LineEntity(ptEntity[0], ptEntity[1]))
+                        debugHorizontal(self,"Passed Line")
                     elif t == "Arc":
+                        debugHorizontal(self,"Passed arc")
                         tes = g.Tessellate()
                         tes = Flatten([tes[0], tes[len(tes)-1], tes[int(len(tes)/2)]])
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
+                debugHorizontal(self,"Passed1")
                 internal_alignment = factory.PolyCurveEntity(interGeometry)
                 if internal_alignment.IsValid:
-                    acc = list(factory.Accumulate([crv.Length for crv in internal_alignment.Curves]))
+                    acc = list(factory.Accumulate([crv.Length * 0.001 for crv in internal_alignment.Curves]))
                     acc.insert(0, 0)
-                    debugHorizontal(self,"Convert to Internal Geometry Success{}".format(internal_alignment.IsValid))
+                    start = float(self.stationStart.Text)
+                    acc = [l + start for l in acc]
+                    debugHorizontal(self,"Alignment Validataion :{}".format(internal_alignment.IsValid))
                 else:
                     debugHorizontal(self,"Imported Curves are not continuous!")
                     self.HZContents.Clear()
@@ -619,12 +726,16 @@ class form_window(WPFWindow):
                     except:
                         continue
                 for index, (t, geo) in enumerate(zip(crvtype, interGeometry)):
-                    self.HZContents.Add(horizontalAlignmentFormat(lastIndex, t, acc[index], acc[index+1], geo.Length))
+                    if geo.Type == "Line":
+                        self.HZContents.Add(horizontalAlignmentFormat(lastIndex, t, acc[index], acc[index+1], (geo.Length * 0.001), geo.Azimuth, None))
+                    elif geo.Type == "Arc":
+                        self.HZContents.Add(horizontalAlignmentFormat(lastIndex, t, acc[index], acc[index+1], (geo.Length * 0.001), None, geo.Radius * 0.001))
                     lastIndex = lastIndex + 1
                 
                 self.Grd_PointBy.IsEnabled = True
-            except:
-                debugHorizontal(self,"Loading Horizontal Alignment Failed")
+                self.Btn_HorzReverse.IsEnabled = True
+            except Exception as e:
+                debugHorizontal(self,"Loading Horizontal Alignment Failed : {}".format(e))
         else:
             debugHorizontal(self,"Horizontal Alignment is not updated.")
         #Sub Line Refresh Start
@@ -636,6 +747,7 @@ class form_window(WPFWindow):
                 opt.ComputeReferences = True
                 opt.IncludeNonVisibleObjects = False
                 opt.View = revit.doc.ActiveView
+                ids = Flatten([i.Id for i in SubLines])
                 geometry = Flatten([elem.get_Geometry(opt) for elem in SubLines])
                 geometry = [g for g in geometry]
                 crvtype = [g.GetType().Name for g in geometry]
@@ -652,15 +764,23 @@ class form_window(WPFWindow):
                         debugHorizontal(self,"Only Line type is supported.")
                         self.Refresh.IsEnabled = False
                         return False
-                for i in intersect:
-                    intersectionPoints.append(internal_alignment.IntersectWith(i))
-                    intersectionPoints = factory.Flatten(intersectionPoints)
+                for index, i in enumerate(intersect):
+                    points = internal_alignment.IntersectWith(i)
+                    if points == []:
+                        debugHorizontal(self,"{} do not intersect with alignment.".format(ids[index]))
+                    else:
+                        intersectionPoints.append(points)
+                intersectionPoints = factory.Flatten(intersectionPoints)
                 self.NumIntCrv.Content = "Selected Number of Curves : \n{}".format(len(SubLines))
                 self.Pts_Num.Content = "Number of Points : {} \nAlignment Length : {}".format(
                     len(intersectionPoints), internal_alignment.Length
                 )
-            except:
-                debugHorizontal(self,"Loading Sub-Lines Failed")
+                if len(intersectionPoints) > 0:
+                    self.Btn_FindPts.IsEnabled = True
+                else:
+                    self.Btn_FindPts.IsEnabled = False
+            except Exception as e:
+                debugHorizontal(self,"Loading Sub-Lines Failed : {}".format(e))
         #After Refresh, disable the button until it is availale
         self.Refresh.IsEnabled = False
             
@@ -678,6 +798,10 @@ class form_window(WPFWindow):
             self.Pts_Num.Content = "Point Number : {} \nAlignment Length : {}".format(
             ptsNumber, internal_alignment.Length
             )
+            if ptsNumber > 0:
+                self.Btn_FindPts.IsEnabled = True
+            else:
+                self.Btn_FindPts.IsEnabled = False
         except:
             False
     
@@ -703,7 +827,7 @@ class form_window(WPFWindow):
         self.Refresh.IsEnabled = True
         debugHorizontal(self, "Sub-Lines Selected")
         
-    def Btn_FindPts(self, sender, e):
+    def Clk_FindPts(self, sender, e):
         global intersectionPoints, internal_alignment
         try:
             lastIndex = 0
@@ -717,7 +841,8 @@ class form_window(WPFWindow):
             if self.Btn_PBC.IsChecked:
                 for pt in intersectionPoints:
                     station = internal_alignment.SegmentLengthAtPoint(pt)
-                    self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, station))
+                    display_station = float(self.stationStart.Text) + (station * 0.001)
+                    self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, display_station))
                     lastIndex = lastIndex + 1
             elif self.Btn_PBI.IsChecked:
                 segLength = []
@@ -736,7 +861,8 @@ class form_window(WPFWindow):
                         intersectionPoints.append(internal_alignment.PointAtSegmentLength(len))
                     len = len + pointInterval
                 for len in segLength:
-                    self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, len))
+                    display_station = float(self.stationStart.Text) + (len * 0.001)
+                    self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, display_station))
                     lastIndex = lastIndex + 1
             debugHorizontal(self, "Station Table Updated.")
         except Exception as e:
@@ -749,6 +875,8 @@ class form_window(WPFWindow):
             path = excel.file_picker(False, location, "Metric Generic Model Adaptive.rft")
             self.famdoc = revit.doc.Application.NewFamilyDocument(path)
             customizable_event.raise_event(createReferencePoint, self, self.famdoc, intersectionPoints)
+            self.HorizontalPointsTable.ItemsSource = None
+            self.HorizontalPointsTable.ItemsSource = self.HorizontalPointContents
             debugHorizontal(self, "{}".format(path))
         except Exception as e:
             debugHorizontal(self, "File Import Failed : {}".format(e))

@@ -26,8 +26,8 @@
                         <Label Content="End Station" Margin="5"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
-                        <TextBox x:Name="stationStart" Margin="10" />
-                        <TextBox x:Name="stationEnd" Margin="10" />
+                        <TextBox x:Name="stationStart" Margin="10" PreviewTextInput="NumberValidationTextBox"/>
+                        <TextBox x:Name="stationEnd" Margin="10" PreviewTextInput="NumberValidationTextBox"/>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -67,8 +67,8 @@
                             Orientation="Horizontal"
                             Margin="10">
                     <Button Content="Select Alignment" Click="selectHorzAlignment" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Delete" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Reverse Table" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Delete" Width="100" Margin="0,0,10,0" IsEnabled="False"/>
+                    <Button Content="Reverse Table" x:Name="Btn_HorzReverse" Click="ReverseHrozTable" Width="100" Margin="0,0,10,0" IsEnabled="False"/>
                 </StackPanel>
                 <Button Grid.Row="1" Grid.Column="1" x:Name="Refresh" Click="refreshHroz" Content="Refresh" Margin="10" IsEnabled="False"/>
                 <Grid Grid.Row="2" Grid.Column="0" x:Name="Grd_PointBy" IsEnabled="False">
@@ -98,8 +98,8 @@
                     <Label Grid.Row="0" Grid.Column="2" x:Name="NumIntCrv" Content="Selected Number of Curves"/>
                     <Label Grid.Row="1" Grid.Column="2" x:Name="Pts_Num" Content="Number of Points"/>
                 </Grid>
-                <Button Grid.Row="2" Grid.Column="1" Content="Find Point on Alignment"
-                        Click="Btn_FindPts" Margin="10"/>
+                <Button Grid.Row="2" Grid.Column="1" Content="Find Point on Alignment" x:Name="Btn_FindPts"
+                        Click="Clk_FindPts" Margin="10" IsEnabled="False"/>
                 <DataGrid x:Name="HorizontalPointsTable"
                           Grid.Row="3" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -133,19 +133,17 @@
             <Grid Height="600">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="0.5*"/>
+                    <RowDefinition Height="0.4*"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="0.5*"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="0.1*"/>
+                    <RowDefinition Height="0.8*"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="0.4*"/>
                 </Grid.ColumnDefinitions>
                 <DataGrid x:Name="VerticalCurveTable"
-                          Grid.Row="0" ColumnWidth="*" Grid.ColumnSpan="3"
+                          Grid.Row="0" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutoGenerateColumns="False" IsReadOnly="False">
@@ -161,59 +159,58 @@
                 </DataGrid>
                 <Border Grid.Row="1" Grid.ColumnSpan="3" Margin="10" BorderBrush="LightGray" BorderThickness="1">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Content="Add Row" Click="addrow" Width="100" Margin="10,5"/>
-                        <Button Content="Clear Row" Click="clearRow" Width="100" Margin="10,5"/>
+                        <Button Content="Import" Click="ImportVertical" Width="100" Margin="10,5"/>
                         <Button Content="Remove Row" Click="removeRow" Width="100" Margin="10,5"/>
                         <Button Content="Calculate Rows" Width="100" Margin="5" Click="calculateRows"/>
-                        <Button Content="Check Row" Click="examineRow" Width="100" Margin="10,5"/>
+                        <Button Content="Clear Row" Click="clearRow" Width="100" Margin="10,5"/>
+                        <Button Content="Add Row" Click="addrow" Width="100" Margin="10,5"/>
                     </StackPanel>
                 </Border>
-                <TextBox x:Name="debug" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="10"
+                <TextBox x:Name="debug" Grid.Row="5" Grid.ColumnSpan="1" TextWrapping="Wrap" Margin="10"
                          IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
-                <Border BorderBrush="LightGray" BorderThickness="1"
-                    Grid.Row="2" Grid.ColumnSpan="3" Margin="10" Padding="5">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="1*"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="0.5*"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="0.5*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Curve Type" VerticalAlignment="Center" TextWrapping="Wrap" 
-                                   Grid.Column="0" Grid.Row="0"/>
-                        <TextBlock x:Name="inputText1" Text="PVI Station Start" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Grid.Column="0" Grid.Row="1"/>
-                        <TextBlock x:Name="inputText2" Text="PVI Station End" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Grid.Column="2" Grid.Row="1"/>
-                        <TextBlock x:Name="inputText3" Text="PVI Elevation Start" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Grid.Column="0" Grid.Row="2"/>
-                        <TextBlock x:Name="inputText4" Text="PVI Elevation End" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Grid.Column="2" Grid.Row="2"/>
-                        <TextBlock x:Name="inputText5" Text="Line Slope" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Grid.Column="0" Grid.Row="3"/>
-                        <ComboBox x:Name="input_curveType" Text="Curve Type" VerticalAlignment="Center" 
-                                   Grid.Column="1" Grid.ColumnSpan="3" Grid.Row="0"
+                <Button Grid.Row="4" Grid.Column="1" Content="Export" Margin="10" Height="50"/>
+                <Grid Grid.Row="0" Grid.Column="1" Margin="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.5*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="0.1*"/>
+                        <ColumnDefinition Width="0.5*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Curve Type" VerticalAlignment="Center" TextWrapping="Wrap" 
+                                   Grid.Column="0" Grid.Row="0" FontSize="8"/>
+                    <TextBlock x:Name="inputText1" Text="PVI Station Start" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Grid.Column="0" Grid.Row="1" FontSize="8"/>
+                    <TextBlock x:Name="inputText2" Text="PVI Station End" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Grid.Column="3" Grid.Row="1" FontSize="8"/>
+                    <TextBlock x:Name="inputText3" Text="PVI Elevation Start" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Grid.Column="0" Grid.Row="2" FontSize="8"/>
+                    <TextBlock x:Name="inputText4" Text="PVI Elevation End" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Grid.Column="3" Grid.Row="2" FontSize="8"/>
+                    <TextBlock x:Name="inputText5" Text="Line Slope" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Grid.Column="0" Grid.Row="3" FontSize="8"/>
+                    <ComboBox x:Name="input_curveType" Text="Curve Type" VerticalAlignment="Center" 
+                                   Grid.Column="1" Grid.ColumnSpan="4" Grid.Row="0"
                                    SelectionChanged="valueUpdated" SelectedIndex="0"/>
-                        <TextBox x:Name="inputValue1" VerticalAlignment="Center" HorizontalAlignment="Left" Width="100"
+                    <TextBox x:Name="inputValue1" VerticalAlignment="Center" HorizontalAlignment="Stretch"
                                    Grid.Column="1" Grid.Row="1" TextChanged="input1Updated"/>
-                        <TextBox x:Name="inputValue2" VerticalAlignment="Center" HorizontalAlignment="Left" Width="100"
-                                   Grid.Column="3" Grid.Row="1"/>
-                        <TextBox x:Name="inputValue3" VerticalAlignment="Center" HorizontalAlignment="Left" Width="100"
+                    <TextBox x:Name="inputValue2" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                   Grid.Column="4" Grid.Row="1"/>
+                    <TextBox x:Name="inputValue3" VerticalAlignment="Center" HorizontalAlignment="Stretch"
                                  Grid.Column="1" Grid.Row="2" TextChanged="inputValue34Updated"/>
-                        <TextBox x:Name="inputValue4" VerticalAlignment="Center" HorizontalAlignment="Left" Width="100"
-                                 Grid.Column="3" Grid.Row="2" TextChanged="inputValue34Updated"/>
-                        <TextBox x:Name="inputValue5" VerticalAlignment="Center" HorizontalAlignment="Left" Width="100"
+                    <TextBox x:Name="inputValue4" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                 Grid.Column="4" Grid.Row="2" TextChanged="inputValue34Updated"/>
+                    <TextBox x:Name="inputValue5" VerticalAlignment="Center" HorizontalAlignment="Stretch"
                                    Grid.Column="1" Grid.Row="3" TextChanged="input3Updated"/>
-                    </Grid>
-                </Border>
+                </Grid>
                 <DataGrid x:Name="VerticalPointsTable"
-                          Grid.Row="3" ColumnWidth="*" Grid.ColumnSpan="3"
+                          Grid.Row="2" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutoGenerateColumns="False" IsReadOnly="False">
@@ -225,29 +222,156 @@
                         <DataGridTextColumn Header="Is Loaded" Binding="{Binding IsLoaded}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <Border Grid.Row="4" Grid.ColumnSpan="3" Margin="10" BorderBrush="LightGray" BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Content="Refresh" Click="VertRefresh" Width="100" Margin="10,5"/>
-                        <Button Content="Select Alignment" Click="SelectAlignment" Width="100" Margin="10,5"/>
-                        <Button Content="Load Points" Click="LoadHorizontalPoints" Width="100" Margin="10,5"/>
-                        <Button Content="Calculate" Click="CalculateElevation" Width="100" Margin="10,5"/>
-                    </StackPanel>
-                </Border>
+                <Grid Grid.Row="2" Grid.Column="1" x:Name="MenuVerticalPoint" Margin="10" IsEnabled="False">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Button x:Name="Btn_VertRefresh" Grid.Row="1" Content="Refresh" Margin="5"
+                            Click="VertRefresh" IsEnabled="False"/>
+                    <Button Content="Select Alignment" Grid.Row="0" Margin="5"
+                            Click="SelectAlignment"/>
+                    <Button Content="Calculate Elevation" Grid.Row="2" Margin="5"
+                            Click="CalculateElevation"/>
+                    <Button Content="Update Alignment" Grid.Row="3" Margin="5"
+                            Click="LoadHorizontalPoints"/>
+                </Grid>
             </Grid>
         </TabItem>
         <TabItem>
             <TabItem.Header>
-                <TextBlock Text="External Data"/>
+                <TextBlock Text="Edit Alignment"/>
             </TabItem.Header>
-            <StackPanel Height="400">
-                <WrapPanel>
-                    <Button Content="Select File Path" Margin="10" Width="200" Height="30" Click="selectFile" ClickMode="Release" />
-                    <Label x:Name="path" Margin="10" Height="30" Content="File Path :" FontSize="15" VerticalAlignment="Center"/>
-                </WrapPanel>
-                <ListView x:Name="sheetList" Margin="10" Height="100"/>
-                <Button Content="Import Data from Selected Sheet" Height="30" Margin="10" Click="importSheetData" ClickMode="Release"/>
-                <TextBox x:Name="debug_external" TextWrapping="Wrap" Margin="10" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
-            </StackPanel>
+            <Grid Height="600">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="0.5*"/>
+                </Grid.ColumnDefinitions>
+                <DataGrid Grid.Row="0" Grid.Column="0" Margin="10"
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          AutoGenerateColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
+                        <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <DataGrid Grid.Row="1" Grid.Column="0" Margin="10"
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          AutoGenerateColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="Number" Binding="{Binding Number}"/>
+                        <DataGridTextColumn Header="IsLoaded" Binding="{Binding IsLoaded}"/>
+                        <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <DataGrid Grid.Row="2" Grid.Column="0" Margin="10"
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          AutoGenerateColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
+                        <DataGridTextColumn Header="IsLoaded" Binding="{Binding IsLoaded}"/>
+                        <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
+                        <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <TextBox Grid.Row="3" Grid.Column="0" Margin="10"/>
+                <Grid Grid.Row="0" Grid.Column="1" Grid.RowSpan="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="1.5*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="1.5*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Row="0" Grid.ColumnSpan="2" Margin="10"
+                                Content="Add"/>
+                        <Label Grid.Row="1" Grid.Column="0" Content="Station" Margin="10,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="10,5,10,5" HorizontalAlignment="Stretch"/>
+                        <Label Grid.Row="2" Grid.Column="0" Content="Slope" Margin="10,0,10,0"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Margin="10,5,10,5" HorizontalAlignment="Stretch"/>
+                        <Button Grid.Row="3" Grid.ColumnSpan="2" Content="Remove" Margin="10"/>
+                    </Grid>
+                    <Grid Grid.Row="1" Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Button Grid.Row="0" Margin="10"
+                            Content="Select Alignment"/>
+                        <Button Grid.Row="1" Margin="10"
+                            Content="Refresh"/>
+                    </Grid>
+                    <Grid Grid.Row="2" Grid.RowSpan="2" Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Row="0" Margin="10,5,10,5"
+                            Content="Point Set Name"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Margin="10,5,10,5"/>
+                        <RadioButton Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"
+                                     GroupName="PjtMethod" Margin="10,0,0,0" IsChecked="True">
+                            <RadioButton.Content>
+                                <TextBlock Text="Alignment Normal Direction" TextWrapping="Wrap"/>
+                            </RadioButton.Content>
+                        </RadioButton>
+                        <RadioButton Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"
+                                     GroupName="PjtMethod" Margin="10,0,0,0">
+                            <RadioButton.Content>
+                                <TextBlock Text="Point Rotation Direction" TextWrapping="Wrap"/>
+                            </RadioButton.Content>
+                        </RadioButton>
+                        <RadioButton Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"
+                                     GroupName="IntMethod" Margin="10,0,0,0">
+                            Line Intersection
+                        </RadioButton>
+                        <Button Grid.Row="2" Grid.Column="1" Content="Select Curve Set"
+                                Margin="10,5,10,5"/>
+                        <RadioButton Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"
+                                     GroupName="IntMethod" Margin="10,0,0,0">
+                            Equal Offset
+                        </RadioButton>
+                        <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5"/>
+                        <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table"
+                                Margin="10,5,10,5"/>
+                        <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Update to Alignment Model"
+                                Margin="10,5,10,5"/>
+                    </Grid>
+                </Grid>
+            </Grid>
         </TabItem>
     </TabControl>
 </Window>

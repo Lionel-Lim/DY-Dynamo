@@ -42,6 +42,7 @@ class Intersect:
     def ByTwoVectorAndPoint(self, point1, vector1, point2, vector2):
         """
         Project two rays from Points to Vector directions and Find a point.
+        This Solution can compute inifity slope lines intersection.
         """
         vector1 = vector1.Normalise()
         vector2 = vector2.Normalise()
@@ -222,7 +223,12 @@ class VectorEntity:
         self.X = vector_x
         self.Y = vector_y
         self.Length = math.sqrt(math.pow(self.X,2)+math.pow(self.Y,2))
-        self.Slope = self.Y / self.X
+        if self.X == 0:
+            self.Slope = 0
+        elif self.Y == 0:
+            self.Slope == "Infinity"
+        else:
+            self.Slope = self.Y / self.X
     
     def __call__(self):
         return (self.X,self.Y)
@@ -276,8 +282,17 @@ class LineEntity:
         self.EndPoint = endpoint
         self.Length = startpoint.DistanceTo(endpoint)
         self.Direction = VectorEntity(endpoint.X - startpoint.X, endpoint.Y - startpoint.Y)
-        self.Slope = (endpoint.Y - startpoint.Y) / (endpoint.X - startpoint.X)
-        self.YIntcept = -(self.Slope * startpoint.X) + startpoint.Y
+        if (endpoint.X - startpoint.X) == 0:
+            self.Slope = "Infinity"
+        elif (endpoint.Y - startpoint.Y) == 0:
+            self.Slope = 0
+        else:
+            self.Slope = (endpoint.Y - startpoint.Y) / (endpoint.X - startpoint.X)
+        if self.Slope == "Infinity":
+            self.YIntcept = 0
+        else:
+            self.YIntcept = -(self.Slope * startpoint.X) + startpoint.Y
+        self.Azimuth = VectorEntity(0,1).AngleTo(self.Direction, True)
         self.Type = "Line"
 
     def __call__(self):
