@@ -1,6 +1,5 @@
 import math
 import operator
-import random
 import re
 import clr
 
@@ -12,7 +11,6 @@ from System.Collections.ObjectModel import ObservableCollection
 import rpw
 from rpw import revit, db, ui, DB, UI
 
-from rpw.exceptions import RevitExceptions
 from pyrevit.forms import WPFWindow
 from collections import Iterable, OrderedDict
 
@@ -45,6 +43,7 @@ SubLines, updatedSubLines = [], False
 intersectionPoints = []
 ReferencePoint = []
 verticalAlignment, updatedVertAlignment = [], False
+NormalDirection = []
 """
 Global Variables End
 """
@@ -133,7 +132,7 @@ def select_SubLines():
         except:
             updatedSubLines = False
 
-def createReferencePoint(self, famdoc, points):
+def createReferencePoint(self, famdoc, points, dir):
     #Get General Parameters for next process
     try:
         displaystations = [str(i.Station) for i in self.HorizontalPointContents]
@@ -147,8 +146,8 @@ def createReferencePoint(self, famdoc, points):
             #This Transaction is for family document
             t = DB.Transaction(famdoc)
             t.Start("Create Reference Point")
-            for s, pt in zip(displaystations, points):
-                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(mm2ft(pt.X), mm2ft(pt.Y), 0), DB.XYZ(1,0,0))
+            for s, pt, d in zip(displaystations, points, dir):
+                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(mm2ft(pt.X), mm2ft(pt.Y), 0), DB.XYZ(d.X,d.Y,0))
                 refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
                 #Assign parameters
                 refPoint.Visible = True
@@ -664,6 +663,7 @@ class form_window(WPFWindow):
     
     def refreshHroz(self, sender, e):
         global updatedHorzAlignment, horizAlignment, interGeometry, internal_alignment, SubLines, updatedSubLines, intersectionPoints
+        global NormalDirection
         intersect = []
         #Main Alignment Refresh Start
         if self.stationStart.Text == "":
@@ -700,7 +700,8 @@ class form_window(WPFWindow):
                     elif t == "Arc":
                         debugHorizontal(self,"Passed arc")
                         tes = g.Tessellate()
-                        tes = Flatten([tes[0], tes[len(tes)-1], tes[int(len(tes)/2)]])
+                        tes = Flatten([g.GetEndPoint(0), g.GetEndPoint(1), g.ComputeDerivatives(0.5,True).Origin])
+                        # tes = Flatten([tes[0], tes[len(tes)-1], tes[int(len(tes)/2)]])
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
                 debugHorizontal(self,"Passed1")
@@ -766,6 +767,7 @@ class form_window(WPFWindow):
                         return False
                 for index, i in enumerate(intersect):
                     points = internal_alignment.IntersectWith(i)
+                    NormalDirection.append(i.Direction.Normalise())
                     if points == []:
                         debugHorizontal(self,"{} do not intersect with alignment.".format(ids[index]))
                     else:
@@ -828,22 +830,29 @@ class form_window(WPFWindow):
         debugHorizontal(self, "Sub-Lines Selected")
         
     def Clk_FindPts(self, sender, e):
-        global intersectionPoints, internal_alignment
+        global intersectionPoints, internal_alignment, NormalDirection
         try:
             lastIndex = 0
-            # self.PointsContents.Clear()
             for i in self.HorizontalPointContents:
                 try:
                     lastIndex = i.Index
                 except:
                     continue
-            #Point By Interval Type
+            temp_nor = []
             if self.Btn_PBC.IsChecked:
-                for pt in intersectionPoints:
+                for pt, nor in zip(intersectionPoints, NormalDirection):
                     station = internal_alignment.SegmentLengthAtPoint(pt)
+                    cross = internal_alignment.TangentAtSegmentLength(station).CrossProduct(nor)
+                    if cross > 0.5:
+                        temp_nor.append(nor)
+                    else:
+                        temp_nor.append(nor.Reverse())
                     display_station = float(self.stationStart.Text) + (station * 0.001)
                     self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, display_station))
                     lastIndex = lastIndex + 1
+                NormalDirection = list(temp_nor)
+                temp_nor = []
+            #Point By Interval Type
             elif self.Btn_PBI.IsChecked:
                 segLength = []
                 pointInterval = float(self.PBI_Interval.Text)
@@ -859,22 +868,24 @@ class form_window(WPFWindow):
                         intersectionPoints.append(internal_alignment.EndPoint)
                     else:
                         intersectionPoints.append(internal_alignment.PointAtSegmentLength(len))
+                    NormalDirection.append(internal_alignment.NormalAtSegmentLength(len))
                     len = len + pointInterval
                 for len in segLength:
                     display_station = float(self.stationStart.Text) + (len * 0.001)
                     self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, display_station))
                     lastIndex = lastIndex + 1
             debugHorizontal(self, "Station Table Updated.")
+            debugHorizontal(self, "{}".format([a() for a in NormalDirection]))
         except Exception as e:
             debugHorizontal(self, "Find Intersection Points is failed. : {}".format(e))
 
     def CreatePoint(self, sender, e):
-        global intersectionPoints
+        global intersectionPoints, NormalDirection
         try:
             location = revit.app.FamilyTemplatePath
             path = excel.file_picker(False, location, "Metric Generic Model Adaptive.rft")
             self.famdoc = revit.doc.Application.NewFamilyDocument(path)
-            customizable_event.raise_event(createReferencePoint, self, self.famdoc, intersectionPoints)
+            customizable_event.raise_event(createReferencePoint, self, self.famdoc, intersectionPoints, NormalDirection)
             self.HorizontalPointsTable.ItemsSource = None
             self.HorizontalPointsTable.ItemsSource = self.HorizontalPointContents
             debugHorizontal(self, "{}".format(path))

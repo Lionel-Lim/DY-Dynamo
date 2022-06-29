@@ -331,7 +331,7 @@ class LineEntity:
         return self.StartPoint.DistanceTo(point)
     
     def GetNormal(self):
-        cross = VectorEntity(self.Direction.Y * 1, self.Direction.X * -1).Normalise()
+        cross = VectorEntity(self.Direction.Y * -1, self.Direction.X * 1).Normalise()
         return cross
 
 class ArcEntity:
@@ -382,9 +382,15 @@ class ArcEntity:
         return segmentlength
     
     def NormalAtSegmentLength(self, segmentlength):
+        create = CreateEntity()
+        dir = create.VectorByTwoPoints(self.StartPoint, self.EndPoint)
+        CTR2MID = create.VectorByTwoPoints(self.CentrePoint, self.PointAtSegmentLength(self.Length/2))
         point = self.PointAtSegmentLength(segmentlength)
         normal = point.VectorTo(self.CentrePoint).Normalise()
-        return normal
+        if dir.CrossProduct(CTR2MID) > 0:
+            return normal.Reverse()
+        else:
+            return normal
     
     def TangentAtSegmentLength(self, segmentlength):
         norm = self.NormalAtSegmentLength(segmentlength)
@@ -444,6 +450,26 @@ class PolyCurveEntity:
                     return self.Curves[index].GetNormal()
                 else:
                     return self.Curves[index].NormalAtSegmentLength(segmentlength-acc[index])
+            elif (index+1) == (len(acc)-1) and IsClose(segmentlength, acc[index+1]):
+                if self.Curves[index].Type == "Line":
+                    return self.Curves[index].GetNormal()
+                else:
+                    return self.Curves[index].NormalAtSegmentLength(self.Curves[index].Length)
+
+    def TangentAtSegmentLength(self, segmentlength):
+        acc = list(Accumulate([crv.Length for crv in self.Curves]))
+        acc.insert(0, 0)
+        for index in range(len(acc)):
+            try:
+                if segmentlength > self.Length:
+                    raise ArgumentOutOfRangeException("Length {} is Out of Polycurve Length (length <= {})".format(segmentlength, self.Length))
+            except ArgumentOutOfRangeException as e:
+                return "Error : {}".format(e)
+            if acc[index] <= segmentlength < acc[index+1]:
+                if self.Curves[index].Type == "Line":
+                    return self.Curves[index].Direction.Normalise()
+                else:
+                    return self.Curves[index].TangentAtSegmentLength(segmentlength-acc[index])
 
     def IntersectWith(self, line):
         intersect_point = []
