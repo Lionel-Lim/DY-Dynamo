@@ -24,10 +24,12 @@
                     <StackPanel Grid.Column="0">
                         <Label Content="Start Station" Margin="5"/>
                         <Label Content="End Station" Margin="5"/>
+                        <Label Content="Alignment Name" Margin="5"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
                         <TextBox x:Name="stationStart" Margin="10" PreviewTextInput="NumberValidationTextBox"/>
                         <TextBox x:Name="stationEnd" Margin="10" PreviewTextInput="NumberValidationTextBox"/>
+                        <TextBox x:Name="alignmentname" Text="Alignment" Margin="10"/>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -114,7 +116,7 @@
                 </DataGrid>
                 <Button Grid.Row="3" Grid.Column="1" Content="Create Horizontal Alignment"
                         Click="CreatePoint" Margin="10"/>
-                    <TextBox x:Name="HorizontalLog" Grid.Row="4" Grid.Column="0" TextWrapping="Wrap"
+                <TextBox x:Name="Log_Horizontal" Grid.Row="4" Grid.Column="0" TextWrapping="Wrap"
                 IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 <Grid Grid.Row="4" Grid.Column="1">
                     <Grid.ColumnDefinitions>
@@ -166,7 +168,7 @@
                         <Button Content="Add Row" Click="addrow" Width="100" Margin="10,5"/>
                     </StackPanel>
                 </Border>
-                <TextBox x:Name="debug" Grid.Row="5" Grid.ColumnSpan="1" TextWrapping="Wrap" Margin="10"
+                <TextBox x:Name="Log_Vertical" Grid.Row="5" Grid.ColumnSpan="1" TextWrapping="Wrap" Margin="10"
                          IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 <Button Grid.Row="4" Grid.Column="1" Content="Export" Margin="10" Height="50"/>
                 <Grid Grid.Row="0" Grid.Column="1" Margin="5">
@@ -255,19 +257,20 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="0.5*"/>
                 </Grid.ColumnDefinitions>
-                <DataGrid Grid.Row="0" Grid.Column="0" Margin="10"
+                <DataGrid x:Name="SuperElevationTable" Grid.Row="0" Grid.Column="0" Margin="10"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutoGenerateColumns="False">
                     <DataGrid.Columns>
+                        <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
                         <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
                         <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <DataGrid Grid.Row="1" Grid.Column="0" Margin="10"
+                <DataGrid Grid.Row="1" Grid.Column="0" Margin="10" x:Name="GeneralPointTable"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False">
+                          AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
@@ -276,20 +279,22 @@
                         <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <DataGrid Grid.Row="2" Grid.Column="0" Margin="10"
+                <DataGrid Grid.Row="2" Grid.Column="0" Margin="10" x:Name="DetailPointTable"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutoGenerateColumns="False">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
                         <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
                         <DataGridTextColumn Header="IsLoaded" Binding="{Binding IsLoaded}"/>
                         <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
                         <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
                     </DataGrid.Columns>
                 </DataGrid>
-                <TextBox Grid.Row="3" Grid.Column="0" Margin="10"/>
+                <TextBox Grid.Row="3" Grid.Column="0" Margin="10"
+                         x:Name="Log_Edit"/>
                 <Grid Grid.Row="0" Grid.Column="1" Grid.RowSpan="4">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -309,12 +314,15 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Button Grid.Row="0" Grid.ColumnSpan="2" Margin="10"
-                                Content="Add"/>
+                                Content="Add" Click="Clk_AddSuperElevation"/>
                         <Label Grid.Row="1" Grid.Column="0" Content="Station" Margin="10,0,10,0"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Margin="10,5,10,5" HorizontalAlignment="Stretch"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="10,5,10,5" HorizontalAlignment="Stretch"
+                                 x:Name="Txt_StationInput" PreviewTextInput="NumberValidationTextBox"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="Slope" Margin="10,0,10,0"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Margin="10,5,10,5" HorizontalAlignment="Stretch"/>
-                        <Button Grid.Row="3" Grid.ColumnSpan="2" Content="Remove" Margin="10"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Margin="10,5,10,5" HorizontalAlignment="Stretch"
+                                 x:Name="Txt_SlopeInput" PreviewTextInput="NumberValidationTextBox"/>
+                        <Button Grid.Row="3" Grid.ColumnSpan="2" Content="Remove" Margin="10"
+                                Click="Clk_RemoveSuperElevation"/>
                     </Grid>
                     <Grid Grid.Row="1" Grid.Column="1">
                         <Grid.RowDefinitions>
@@ -322,11 +330,13 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Button Grid.Row="0" Margin="10"
-                            Content="Select Alignment"/>
+                            Content="Select Alignment" Click="Clk_SelectFullAlignment"/>
                         <Button Grid.Row="1" Margin="10"
-                            Content="Refresh"/>
+                            Content="Refresh" IsEnabled="False"
+                            x:Name="Btn_RefreshEdit" Click="Clk_RefreshEdit"/>
                     </Grid>
-                    <Grid Grid.Row="2" Grid.RowSpan="2" Grid.Column="1">
+                    <Grid Grid.Row="2" Grid.RowSpan="2" Grid.Column="1"
+                          x:Name="Grd_AddExtraPoint" IsEnabled="False">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
@@ -364,7 +374,7 @@
                                      GroupName="IntMethod" Margin="10,0,0,0">
                             Equal Offset
                         </RadioButton>
-                        <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5" PreviewTextInput="NumberValidationTextBox"/>
                         <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table"
                                 Margin="10,5,10,5"/>
                         <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Update to Alignment Model"

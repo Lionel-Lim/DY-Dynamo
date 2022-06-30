@@ -1,3 +1,4 @@
+import itertools
 import math
 import operator
 import re
@@ -12,7 +13,7 @@ import rpw
 from rpw import revit, db, ui, DB, UI
 
 from pyrevit.forms import WPFWindow
-from collections import Iterable, OrderedDict
+from collections import Iterable, OrderedDict, defaultdict
 
 from event import CustomizableEvent
 
@@ -44,6 +45,7 @@ intersectionPoints = []
 ReferencePoint = []
 verticalAlignment, updatedVertAlignment = [], False
 NormalDirection = []
+FullAlignment, updatedFullAlignment = [], False
 """
 Global Variables End
 """
@@ -51,12 +53,16 @@ Global Variables End
 General Functions Start
 """
 def debug(self, line):
-    self.debug.Text = "{}\n{}".format(self.debug.Text, line)
-    self.debug.ScrollToEnd()
+    self.Log_Vertical.Text = "{}\n{}".format(self.Log_Vertical.Text, line)
+    self.Log_Vertical.ScrollToEnd()
 
 def debugHorizontal(self, line):
-    self.HorizontalLog.Text = "{}\n{}".format(self.HorizontalLog.Text, line)
-    self.HorizontalLog.ScrollToEnd()
+    self.Log_Horizontal.Text = "{}\n{}".format(self.Log_Horizontal.Text, line)
+    self.Log_Horizontal.ScrollToEnd()
+
+def debugEdit(self, line):
+    self.Log_Edit.Text = "{}\n{}".format(self.Log_Edit.Text, line)
+    self.Log_Edit.ScrollToEnd() 
 
 def toFloat(input):
     try:
@@ -151,7 +157,7 @@ def createReferencePoint(self, famdoc, points, dir):
                 refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
                 #Assign parameters
                 refPoint.Visible = True
-                refPoint.Name = "{}/{}".format(s, refPoint.UniqueId)
+                refPoint.Name = "{}/Main//0/{}".format(s, refPoint.UniqueId)
                 ids.append(refPoint.UniqueId)
             t.Commit()
         except Exception as e:
@@ -209,6 +215,17 @@ def setAlignmentParameter(parameter, value):
         famdoc.Close(False)
     except Exception as e:
         UI.TaskDialog.Show("Error", "Error : {}".format(e))
+
+def select_SelectFullAlignment(self):
+    global FullAlignment, updatedFullAlignment
+    with db.Transaction("selection"):
+        ref = ui.Pick.pick_element("Select Alignment", False)
+        try:
+            FullAlignment = revit.doc.GetElement(ref.ElementId)
+            updatedFullAlignment = True
+            self.Btn_RefreshEdit.IsEnabled = True
+        except:
+            updatedFullAlignment = False
 """
 Revit API Methods End
 """
@@ -258,6 +275,30 @@ class horizontalPointTableFormat:
         self.Station = station
         self.RevitID = revitID
         self.IsLoaded = isloaded
+
+class SuperElevationTableFormat:
+    def __init__(self, index, station, slope):
+        self.Index = index
+        self.Station = station
+        self.Slope = slope
+
+class GeneralPointTableFormat:
+    def __init__(self, index, name, number, isloaded, offset):
+        self.Index = index
+        self.Name = name
+        self.Number = number
+        self.IsLoaded = isloaded
+        self.Offset = offset
+
+class DetailPointTableFormat:
+    def __init__(self, index, name, station, id, isloaded, offset, slope):
+        self.Index = index
+        self.Name = name
+        self.Station = station
+        self.ID = id
+        self.IsLoaded = isloaded
+        self.Offset = offset
+        self.Slope = slope
 """
 WPF Data Table Format End
 """
@@ -281,13 +322,21 @@ class form_window(WPFWindow):
         self.HorizontalPointContents = ObservableCollection[object]()
         self.HorizontalPointsTable.ItemsSource = self.HorizontalPointContents
 
+        self.SuperElevationContents = ObservableCollection[object]()
+        self.SuperElevationTable.ItemsSource = self.SuperElevationContents
+
+        self.GeneralPointContents = ObservableCollection[object]()
+        self.GeneralPointTable.ItemsSource = self.GeneralPointContents
+
+        self.DetailPointContents = ObservableCollection[object]()
+        self.DetailPointTable.ItemsSource = self.DetailPointContents
+
         self.curveType = ObservableCollection[object]()
         [self.curveType.Add(ct) for ct in curveType]
         self.input_curveType.ItemsSource = self.curveType
 
         self.reverseHrozCrv = False
 
-        self.debug.Text = "Initializing Success\nWaiting Task..."
         
 
     """
@@ -503,7 +552,7 @@ class form_window(WPFWindow):
                 for row in range(1, rowCnt):
                     seStation.append(values[row][4])
                     sePercentage.append(values[row][5])
-
+                #Vertical Curve Table Input
                 for index in range(len(slope)):
                     self.VAContents.Add(
                         verticalAlignmentFormat(
@@ -514,6 +563,13 @@ class form_window(WPFWindow):
                             curveType[index],
                             curveLength[index],
                             "",
+                        )
+                    )
+                #Superelevation Table Input
+                for index, (station, slope) in enumerate(zip(seStation, sePercentage)):
+                    self.SuperElevationContents.Add(
+                        SuperElevationTableFormat(
+                            index, station, slope
                         )
                     )
 
@@ -905,7 +961,8 @@ class form_window(WPFWindow):
         try:
             documentLocation = (revit.doc.PathName).Split('\\')
             documentLocation = '{}{}'.format('\\'.join(map(str, documentLocation[0:-1])),'\\')
-            saveAsPath = "{}{}.rfa".format(documentLocation, "Alignment")
+            familyname = "Alignment" if self.alignmentname.Text == None else self.alignmentname.Text
+            saveAsPath = "{}{}.rfa".format(documentLocation, familyname)
             SaveAsOpt = DB.SaveAsOptions()
             SaveAsOpt.OverwriteExistingFile = True
             self.famdoc.SaveAs(saveAsPath, SaveAsOpt)
@@ -913,42 +970,94 @@ class form_window(WPFWindow):
             self.famdoc.Close(False)
         except Exception as e:
             debugHorizontal(self, "Error is {}".format(e))
-        
-        # global internal_alignment
-        # try:
-        #     float(e.Text)
-        #     e.Handled = False
-        #     # self.PBI_Num.Content = str(round(internal_alignment.Length / float(self.PBI_Interval.Text),0))
-        #     self.PBI_Num.Content = "{}".format(self.PBI_Interval.Text)
-        # except:
-        #     if e.Text == ".":
-        #         e.Handled = False
-        #     else:
-        #         e.Handled = True
-    # def setCurve(self, sender, e):
-    #     try:
-    #         index = self.layerList.SelectedIndex
-    #         debugHorizontal(self,"index{}".format(index))
-    #         layers = self.layers
-    #         objs = self.objs
-    #         selectedCurves = []
-    #         hash = []
-    #         for obj in objs:
-    #             styleId = obj.GraphicsStyleId
-    #             style = revit.doc.GetElement(styleId)
-    #             try:
-    #                 if style.GraphicsStyleCategory.Name == layers[index]:
-    #                     selectedCurves.append(obj)
-    #                     hash.append(obj.GetHashCode())
-    #             except:
-    #                 False
-    #         list1, list2 = (list(t) for t in zip(*sorted(zip(hash, selectedCurves))))
-    #         debugHorizontal(self,"curvenumber:{}".format(selectedCurves))
-    #         debugHorizontal(self,"sorted:{}".format(list2))
-    #     except:
-    #         debugHorizontal(self,"Fail")
-        
+    
+    def Clk_AddSuperElevation(self, sender, e):
+        try:
+            station = float(self.Txt_StationInput.Text)
+            slope = float(self.Txt_SlopeInput.Text)
+            index = self.SuperElevationContents.Count
+            if station != "" and slope != "":
+                self.SuperElevationContents.Add(SuperElevationTableFormat(index, station, slope))
+                debugEdit(self, "Superelevation Added")
+            else:
+                debugEdit(self, "Input values are missing.")
+        except ValueError:
+            debugEdit(self, "Enter Only Number.")
+        except Exception as e:
+            debugEdit(self, "{}".format(e))
+    
+    def Clk_RemoveSuperElevation(self, sender, e):
+        try:
+            index = self.SuperElevationTable.SelectedIndex
+            self.SuperElevationContents.RemoveAt(index)
+            debugEdit(self, "{} Row Removed".format(index))
+        except ValueError:
+            try:
+                index = self.SuperElevationContents.Count - 1
+                self.SuperElevationContents.RemoveAt(index)
+                debugEdit(self, "{} Row Removed".format(index))
+            except Exception:
+                debugEdit(self, "Table is empty.")
+        except Exception as e:
+            debugEdit(self, "Error : {}".format(e))
+    
+    def Clk_SelectFullAlignment(self, sender, e):
+        customizable_event.raise_event(select_SelectFullAlignment, self)
+                
+    def Clk_RefreshEdit(self, sender, e):
+        global FullAlignment, updatedFullAlignment
+        loaded = False
+        try:
+            if updatedFullAlignment:
+                family = FullAlignment.Symbol.Family
+                famdoc = revit.doc.EditFamily(family)
+                collector = DB.FilteredElementCollector(famdoc)
+                refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+                name = [e.Name.split("/") for e in refPoints]
+                data = {n[-1] : [float(n[0]), n[1], n[2], n[3]] for n in name}
+                key = lambda x: x[1]
+                PointDic = defaultdict(list)
+                for key, group in itertools.groupby(name, key):
+                    PointDic[key].append(list(group))
+                    debugEdit(self, "{}".format(PointDic))
+                sortedData = sorted(data.items(), key=operator.itemgetter(1))
+                sortedData = OrderedDict(sortedData)
+                famdoc.Close(False)
+                loaded = True
+                updatedFullAlignment = False
+                self.Btn_RefreshEdit.IsEnabled = False
+            debugEdit(self, "Alignment Loaded")
+        except Exception as e:
+            famdoc.Close(False)
+            debugEdit(self, "{}".format(e))
+
+        try:
+            self.GeneralPointContents.Clear()
+            if loaded:
+                
+                index = self.GeneralPointContents.Count
+                name = next(iter(data.values()))[1]
+                number = len(data)
+                isloaded = True
+                alloffset = list(data.values())
+                uniqueoffset = set([i[0] for i in alloffset])
+                if len(uniqueoffset) == 1:
+                    offset = list(uniqueoffset)[0]
+                else:
+                    offset = "various"
+                #Add data to table
+                self.GeneralPointContents.Add(
+                    GeneralPointTableFormat(
+                        index, name, number, isloaded, offset
+                    )
+                )
+        except Exception as e:
+            debugEdit(self, "{}".format(e))
 
 
+            
+
+        
+        
 
 form = form_window("ui.xaml")
