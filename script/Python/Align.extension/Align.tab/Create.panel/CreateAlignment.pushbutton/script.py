@@ -190,6 +190,9 @@ def createReferencePoint(self, famdoc, points, dir):
             i.IsLoaded = True
     except Exception as e:
         UI.TaskDialog.Show("Error", "Error while parsing data : {}".format(e))
+    #Refresh Datagrid
+    self.HorizontalPointsTable.ItemsSource = None
+    self.HorizontalPointsTable.ItemsSource = self.HorizontalPointContents
 
 def setAlignmentParameter(parameter, value):
     global verticalAlignment
@@ -328,8 +331,8 @@ class form_window(WPFWindow):
         self.GeneralPointContents = ObservableCollection[object]()
         self.GeneralPointTable.ItemsSource = self.GeneralPointContents
 
-        self.DetailPointContents = ObservableCollection[object]()
-        self.DetailPointTable.ItemsSource = self.DetailPointContents
+        self.DetailPointContents = []
+        # self.DetailPointTable.ItemsSource = self.DetailPointContents
 
         self.curveType = ObservableCollection[object]()
         [self.curveType.Add(ct) for ct in curveType]
@@ -746,21 +749,15 @@ class form_window(WPFWindow):
                 #Convert Geometry into internal type
                 create = factory.CreateEntity()
                 interGeometry = []
-                debugHorizontal(self,"Passed2")
                 for t, g in zip(crvtype, geometry):
                     if t == "Line":
                         tes = g.Tessellate()
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(factory.LineEntity(ptEntity[0], ptEntity[1]))
-                        debugHorizontal(self,"Passed Line")
                     elif t == "Arc":
-                        debugHorizontal(self,"Passed arc")
-                        tes = g.Tessellate()
                         tes = Flatten([g.GetEndPoint(0), g.GetEndPoint(1), g.ComputeDerivatives(0.5,True).Origin])
-                        # tes = Flatten([tes[0], tes[len(tes)-1], tes[int(len(tes)/2)]])
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
-                debugHorizontal(self,"Passed1")
                 internal_alignment = factory.PolyCurveEntity(interGeometry)
                 if internal_alignment.IsValid:
                     acc = list(factory.Accumulate([crv.Length * 0.001 for crv in internal_alignment.Curves]))
@@ -942,8 +939,6 @@ class form_window(WPFWindow):
             path = excel.file_picker(False, location, "Metric Generic Model Adaptive.rft")
             self.famdoc = revit.doc.Application.NewFamilyDocument(path)
             customizable_event.raise_event(createReferencePoint, self, self.famdoc, intersectionPoints, NormalDirection)
-            self.HorizontalPointsTable.ItemsSource = None
-            self.HorizontalPointsTable.ItemsSource = self.HorizontalPointContents
             debugHorizontal(self, "{}".format(path))
         except Exception as e:
             debugHorizontal(self, "File Import Failed : {}".format(e))
@@ -1009,23 +1004,26 @@ class form_window(WPFWindow):
         loaded = False
         try:
             if updatedFullAlignment:
-                family = FullAlignment.Symbol.Family
-                famdoc = revit.doc.EditFamily(family)
+                self.family = FullAlignment.Symbol.Family
+                famdoc = revit.doc.EditFamily(self.family)
                 collector = DB.FilteredElementCollector(famdoc)
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
                 name = [e.Name.split("/") for e in refPoints]
                 data = {n[-1] : [float(n[0]), n[1], n[2], n[3]] for n in name}
-                key = lambda x: x[1]
-                PointDic = defaultdict(list)
-                for key, group in itertools.groupby(name, key):
-                    PointDic[key].append(list(group))
-                    debugEdit(self, "{}".format(PointDic))
-                sortedData = sorted(data.items(), key=operator.itemgetter(1))
-                sortedData = OrderedDict(sortedData)
+                temp = defaultdict(list)
+                self.PointDic = defaultdict(list)
+                for i in name:
+                    temp[i[1]].append(i)
+                stations = []
+                for index, i in enumerate(temp.values()):
+                    stations.append([])
+                    for j in i:
+                        stations[index].append(float(j[0]))
+                for st, (key, value) in zip(stations, temp.items()):
+                    self.PointDic[key] = [i for _, i in sorted(zip(st, value))]
                 famdoc.Close(False)
                 loaded = True
                 updatedFullAlignment = False
-                self.Btn_RefreshEdit.IsEnabled = False
             debugEdit(self, "Alignment Loaded")
         except Exception as e:
             famdoc.Close(False)
@@ -1034,30 +1032,131 @@ class form_window(WPFWindow):
         try:
             self.GeneralPointContents.Clear()
             if loaded:
-                
-                index = self.GeneralPointContents.Count
-                name = next(iter(data.values()))[1]
-                number = len(data)
-                isloaded = True
-                alloffset = list(data.values())
-                uniqueoffset = set([i[0] for i in alloffset])
-                if len(uniqueoffset) == 1:
-                    offset = list(uniqueoffset)[0]
-                else:
-                    offset = "various"
-                #Add data to table
-                self.GeneralPointContents.Add(
-                    GeneralPointTableFormat(
-                        index, name, number, isloaded, offset
+                for num, (key, value) in enumerate(self.PointDic.items()):
+                    index = self.GeneralPointContents.Count
+                    name = key
+                    number = len(value)
+                    isloaded = True
+                    alloffset = [data[3] for data in value]
+                    uniqueoffset = set(alloffset)
+                    if len(uniqueoffset) == 1:
+                        offset = list(uniqueoffset)[0]
+                    else:
+                        offset = "various"
+                    #Add data to General table
+                    self.GeneralPointContents.Add(
+                        GeneralPointTableFormat(
+                            index, name, number, isloaded, offset
+                        )
                     )
-                )
+                    self.DetailPointContents.append([])
+                    self.DetailPointContents[num] = ObservableCollection[object]()
+                    index_detail = 0
+                    debugEdit(self, "{} is loaded.".format(name))
+                    #Add data to Detail table
+                    for i in value:
+                        self.DetailPointContents[num].Add(
+                            DetailPointTableFormat(
+                                index_detail, i[1], i[0], i[-1], True, i[3], i[2]
+                            )
+                        )
+                        index_detail = index_detail + 1
+        except Exception as e:
+            debugEdit(self, "Loading {} is failed.".format(name))
+            debugEdit(self, "{}".format(e))
+        #Set UI Default
+        self.Grd_AddExtraPoint.IsEnabled = True
+        self.Btn_RefreshEdit.IsEnabled = False
+    
+    def ViewDetailTable(self, sender, e):
+        try:
+            index = self.GeneralPointTable.SelectedIndex
+            self.DetailPointTable.ItemsSource = self.DetailPointContents[index]
         except Exception as e:
             debugEdit(self, "{}".format(e))
 
+    def clk_SelectCurveSet(self, sender, e):
+        customizable_event.raise_event(select_horizAlignment)
+        self.Btn_AddTable.IsEnabled = True
+        self.RBtn_Line.IsChecked = True
+        debugEdit(self, "Curves Selected")
+    
+    def Clk_AddExtraToTable(self, sender, e):
+        global horizAlignment, updatedHorzAlignment
+        if updatedHorzAlignment:
+            try:
+                opt = DB.Options()
+                opt.ComputeReferences = True
+                opt.IncludeNonVisibleObjects = False
+                opt.View = revit.doc.ActiveView
+                geometry = Flatten([elem.get_Geometry(opt) for elem in horizAlignment])
+                geometry = [g for g in geometry]
+                crvtype = [g.GetType().Name for g in geometry]
+                updatedHorzAlignment = False
+                debugEdit(self,"Loaded {} Number of Curves".format(len(crvtype)))
+            except Exception as e:
+                debugEdit(self,"Importing curve is failed. \n{}".format(len(crvtype)))
+            try:
+                #Convert Geometry into internal type
+                create = factory.CreateEntity()
+                interGeometry = []
+                for t, g in zip(crvtype, geometry):
+                    if t == "Line":
+                        tes = g.Tessellate()
+                        ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
+                        interGeometry.append(factory.LineEntity(ptEntity[0], ptEntity[1]))
+                    elif t == "Arc":
+                        tes = Flatten([g.GetEndPoint(0), g.GetEndPoint(1), g.ComputeDerivatives(0.5,True).Origin])
+                        ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
+                        interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
+                internal_alignment = factory.PolyCurveEntity(interGeometry)
+                if internal_alignment.IsValid:
+                    debugHorizontal(self,"Alignment Validataion :{}".format(internal_alignment.IsValid))
+                else:
+                    debugHorizontal(self,"Imported Curves are not continuous!")
+            except Exception as e:
+                debugEdit(self, "Converting Geometry Failed.")
+                debugEdit(self, "{}".format(e))
 
-            
-
-        
-        
+            try:
+                create = factory.CreateEntity()
+                famdoc = revit.doc.EditFamily(self.family)
+                collector = DB.FilteredElementCollector(famdoc)
+                refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+                name = [e.Name.split("/") for e in refPoints]
+                point = []
+                for e in refPoints:
+                    if e.Name.split("/")[1] == "Main":
+                        point.append(e)
+                XY = []
+                for p in point:
+                    XY.append(factory.PointEntity(
+                        ft2mm(p.GetCoordinateSystem().Origin.X),
+                        ft2mm(p.GetCoordinateSystem().Origin.Y))
+                    )
+                XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
+                debugEdit(self, "{},{}".format(XY, XVec_revit))
+                XVec = []
+                for v in XVec_revit:
+                    XVec.append(factory.VectorEntity(v.X, v.Y))
+                int_line_left = [create.LineByPointAndDirection(p, dir, 10000000000) for p, dir in zip(XY, XVec)]
+                int_line_right = [create.LineByPointAndDirection(p, dir.Reverse(), 10000000000) for p, dir in zip(XY, XVec)]
+                Int_Point_Left = []
+                Int_Point_Right = []
+                for line in int_line_left:
+                    Int_Point_Left.append(internal_alignment.IntersectWith(line, False))
+                for line in int_line_right:
+                    Int_Point_Right.append(internal_alignment.IntersectWith(line, False))
+                Int_Point_Left = factory.Flatten(Int_Point_Left)
+                Int_Point_Right = factory.Flatten(Int_Point_Right)
+                debugEdit(self, "{},,,,,,,,,,,,,,{}".format(Int_Point_Left, Int_Point_Right))
+                if len(Int_Point_Left) >= len(Int_Point_Right):
+                    a = [p() for p in Int_Point_Left]
+                else:
+                    a = [p() for p in Int_Point_Right]
+                debugEdit(self, "{}".format(a))
+            except Exception as e:
+                debugEdit(self, "Finding Intersection Is Failed.")
+                debugEdit(self, "{}".format(e))
 
 form = form_window("ui.xaml")

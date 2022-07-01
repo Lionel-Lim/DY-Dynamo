@@ -39,13 +39,15 @@ class ArgumentException(Exception):
         return self.msg
 
 class Intersect:
-    def ByTwoVectorAndPoint(self, point1, vector1, point2, vector2):
+    def ByTwoVectorAndPoint(self, line1, line2):
         """
         Project two rays from Points to Vector directions and Find a point.
         This Solution can compute inifity slope lines intersection.
         """
-        vector1 = vector1.Normalise()
-        vector2 = vector2.Normalise()
+        point1 = line1.StartPoint
+        point2 = line2.StartPoint
+        vector1 = line1.Direction.Normalise()
+        vector2 = line2.Direction.Normalise()
         create = CreateEntity()
         stp2edp = create.VectorByTwoPoints(point1, point2)
         cross1 = stp2edp.CrossProduct(vector2)
@@ -54,29 +56,39 @@ class Intersect:
         add_vector = vector1.Scale(t)
         intersect_point = add_vector.Add(point1)
         return intersect_point
-
-    def ByTwoLines(self, line1, line2):
+    
+    def ByTwoLines(self, line1, line2, RayCast=False):
         """
-        Find a point at intersection of two lines
-        return 0 : Lines are parallel.
-        return 1 : Lines are same.
         return -1 : There is no intersection.
         """
+        line1_start, line1_end = line1.StartPoint, line1.EndPoint
+        line2_start, line2_end = line2.StartPoint, line2.EndPoint
+        xdiff = (line1_start.X - line1_end.X, line2_start.X - line2_end.X)
+        ydiff = (line1_start.Y - line1_end.Y, line2_start.Y - line2_end.Y)
+
+        def det(a, b):
+            return a[0] * b[1] - a[1] * b[0]
+
         def discr(p1, p2, p3):
             return (p3.Y - p1.Y) * (p2.X - p1.X) > (p2.Y - p1.Y) * (p3.X - p1.X)
-        a, b, c, d = line1.StartPoint, line1.EndPoint, line2.StartPoint, line2.EndPoint
-        slope1, slope2 = line1.Slope, line2.Slope
-        yint1, yint2 = line1.YIntcept, line2.YIntcept
-        px = (yint2 - yint1) / (slope1 - slope2)
-        py = (slope1 * px) + yint1
-        if slope1 == slope2:
-            if yint1 == yint2:
-                return 1
-            return 0
-        elif not(discr(a, c, d) != discr(b, c, d) and discr(a, b, c) != discr(a, b, d)):
+
+        div = det(xdiff, ydiff)
+        #Lines are not intersected.
+        if div == 0:
+            return -1
+        d1 = ((line1_start.X * line1_end.Y) - (line1_start.Y * line1_end.X))
+        d2 = ((line2_start.X * line2_end.Y) - (line2_start.Y * line2_end.X))
+        d = (d1, d2)
+        x = det(d, xdiff) / div
+        y = det(d, ydiff) / div
+        point = PointEntity(x,y)
+        if RayCast:
+            return point
+        elif not(discr(line1_start, line2_start, line2_end) != discr(line1_end, line2_start, line2_end) 
+        and discr(line1_start, line1_end, line2_start) != discr(line1_start, line1_end, line2_end)):
             return -1
         else:
-            return PointEntity(px, py)
+            return point
 
     def ByArcAndLine(self, arc, line, full_line=False, tangent_tol=1e-9):
         """ 
@@ -168,8 +180,16 @@ class CreateEntity:
         ab_vec = Calculate_Vector_To_Centrepoint(startpoint, midpoint)
         bc_vec = Calculate_Vector_To_Centrepoint(endpoint, midpoint)
         intersection = Intersect()
-        centre_point = intersection.ByTwoVectorAndPoint(ab_mid, ab_vec, bc_mid, bc_vec)
+        create = CreateEntity()
+        line1 = create.LineByPointAndDirection(ab_mid, ab_vec)
+        line2 = create.LineByPointAndDirection(bc_mid, bc_vec)
+        centre_point = intersection.ByTwoLines(line1, line2, True)
         return ArcEntity(startpoint, endpoint, centre_point)
+    
+    def LineByPointAndDirection(self, startpoint, direction, length=1):
+        d = direction.Normalise().Scale(length)
+        secondPoint = d.Add(startpoint)
+        return LineEntity(startpoint, secondPoint)
 
 class PointEntity:
     """
@@ -471,15 +491,15 @@ class PolyCurveEntity:
                 else:
                     return self.Curves[index].TangentAtSegmentLength(segmentlength-acc[index])
 
-    def IntersectWith(self, line):
+    def IntersectWith(self, line, raycast=False):
         intersect_point = []
         result = []
         intersect = Intersect()
         for crv in self.Curves:
             if crv.Type == "Line":
-                val = intersect.ByTwoLines(crv, line)
+                val = intersect.ByTwoLines(crv, line, raycast)
             elif crv.Type == "Arc":
-                val = intersect.ByArcAndLine(crv, line)
+                val = intersect.ByArcAndLine(crv, line, raycast)
             else:
                 False
             intersect_point.append(val)

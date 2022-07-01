@@ -54,7 +54,7 @@
                           Grid.Row="0" ColumnWidth="*" Grid.ColumnSpan="2"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False" IsReadOnly="False">
+                          AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}" IsReadOnly="True" />
                         <DataGridTextColumn Header="Curve Type" Binding="{Binding CurveType}"/>
@@ -106,7 +106,7 @@
                           Grid.Row="3" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False" IsReadOnly="False">
+                          AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}" IsReadOnly="True" />
                         <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
@@ -215,7 +215,7 @@
                           Grid.Row="2" ColumnWidth="*" Grid.ColumnSpan="1"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False" IsReadOnly="False">
+                          AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}" IsReadOnly="True" />
                         <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
@@ -270,7 +270,7 @@
                 <DataGrid Grid.Row="1" Grid.Column="0" Margin="10" x:Name="GeneralPointTable"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False" IsReadOnly="True">
+                          AutoGenerateColumns="False" IsReadOnly="True" SelectedCellsChanged="ViewDetailTable">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
@@ -282,15 +282,15 @@
                 <DataGrid Grid.Row="2" Grid.Column="0" Margin="10" x:Name="DetailPointTable"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutoGenerateColumns="False">
+                          AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
                         <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
+                        <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
+                        <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
                         <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
                         <DataGridTextColumn Header="IsLoaded" Binding="{Binding IsLoaded}"/>
-                        <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
-                        <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
                     </DataGrid.Columns>
                 </DataGrid>
                 <TextBox Grid.Row="3" Grid.Column="0" Margin="10"
@@ -365,20 +365,20 @@
                             </RadioButton.Content>
                         </RadioButton>
                         <RadioButton Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"
-                                     GroupName="IntMethod" Margin="10,0,0,0">
+                                     GroupName="IntMethod" x:Name="RBtn_Line" Margin="10,0,0,0">
                             Line Intersection
                         </RadioButton>
                         <Button Grid.Row="2" Grid.Column="1" Content="Select Curve Set"
-                                Margin="10,5,10,5"/>
+                                Margin="10,5,10,5" Click="clk_SelectCurveSet"/>
                         <RadioButton Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"
-                                     GroupName="IntMethod" Margin="10,0,0,0">
+                                     GroupName="IntMethod" x:Name="RBtn_Offset" Margin="10,0,0,0">
                             Equal Offset
                         </RadioButton>
                         <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5" PreviewTextInput="NumberValidationTextBox"/>
-                        <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table"
-                                Margin="10,5,10,5"/>
+                        <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table" x:Name="Btn_AddTable"
+                                Margin="10,5,10,5" IsEnabled="False" Click="Clk_AddExtraToTable"/>
                         <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Update to Alignment Model"
-                                Margin="10,5,10,5"/>
+                                Margin="10,5,10,5" IsEnabled="False"/>
                     </Grid>
                 </Grid>
             </Grid>
