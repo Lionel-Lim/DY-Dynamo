@@ -229,6 +229,24 @@ def select_SelectFullAlignment(self):
             self.Btn_RefreshEdit.IsEnabled = True
         except:
             updatedFullAlignment = False
+    
+def updateAlignment(self, famdoc):
+    with db.Transaction("Create Reference Points"):
+        try:
+            #This Transaction is for family document
+            t = DB.Transaction(famdoc)
+            t.Start("Create Reference Point")
+            for s, pt, d in zip(displaystations, points, dir):
+                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(mm2ft(pt.X), mm2ft(pt.Y), 0), DB.XYZ(d.X,d.Y,0))
+                refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
+                #Assign parameters
+                refPoint.Visible = True
+                refPoint.Name = "{}/Main//0/{}".format(s, refPoint.UniqueId)
+                ids.append(refPoint.UniqueId)
+            t.Commit()
+        except Exception as e:
+            UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
+            t.Commit()
 """
 Revit API Methods End
 """
@@ -294,8 +312,9 @@ class GeneralPointTableFormat:
         self.Offset = offset
 
 class DetailPointTableFormat:
-    def __init__(self, index, name, station, id, isloaded, offset, slope):
+    def __init__(self, index, elevation, name, station, id, isloaded, offset, slope):
         self.Index = index
+        self.Elevation = elevation
         self.Name = name
         self.Station = station
         self.ID = id
@@ -669,6 +688,7 @@ class form_window(WPFWindow):
         try:
             stations = [i.Station for i in self.VerticalPointContents]
             group = self.VC.RangeTypeAtStation(stations, self.calculatedCurveLength, accumulationrequired=True)
+            debug(self, "Group : {}".format(group))
             elevations = self.VC.ElevationAtStation(
                 group, stations, self.curveType, self.calculatedCurveLength, self.pviElevation, self.grade
                 )
@@ -732,11 +752,7 @@ class form_window(WPFWindow):
             try:
                 #Convert Model Curves to Geomtery
                 debugHorizontal(self,"Loaded {} Number of Curves".format(len(horizAlignment)))
-                opt = DB.Options()
-                opt.ComputeReferences = True
-                opt.IncludeNonVisibleObjects = False
-                opt.View = revit.doc.ActiveView
-                geometry = Flatten([elem.get_Geometry(opt) for elem in horizAlignment])
+                geometry = Flatten([elem.GeometryCurve for elem in horizAlignment])
                 if self.reverseHrozCrv:
                     geometry = [g.CreateReversed() for g in geometry]
                     geometry.reverse()
@@ -928,7 +944,6 @@ class form_window(WPFWindow):
                     self.HorizontalPointContents.Add(horizontalPointTableFormat(lastIndex, display_station))
                     lastIndex = lastIndex + 1
             debugHorizontal(self, "Station Table Updated.")
-            debugHorizontal(self, "{}".format([a() for a in NormalDirection]))
         except Exception as e:
             debugHorizontal(self, "Find Intersection Points is failed. : {}".format(e))
 
@@ -1008,17 +1023,19 @@ class form_window(WPFWindow):
                 famdoc = revit.doc.EditFamily(self.family)
                 collector = DB.FilteredElementCollector(famdoc)
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+                definition = [i.Definition for i in refPoints[0].Parameters if i.Definition.Name == "Offset"][0]
                 name = [e.Name.split("/") for e in refPoints]
-                data = {n[-1] : [float(n[0]), n[1], n[2], n[3]] for n in name}
+                for pt, n in zip(refPoints, name):
+                    n.insert(0, round(ft2mm(pt.Parameter[definition.BuiltInParameter].AsDouble()),2) * 0.001)
                 temp = defaultdict(list)
                 self.PointDic = defaultdict(list)
                 for i in name:
-                    temp[i[1]].append(i)
+                    temp[i[2]].append(i)
                 stations = []
                 for index, i in enumerate(temp.values()):
                     stations.append([])
                     for j in i:
-                        stations[index].append(float(j[0]))
+                        stations[index].append(float(j[1]))
                 for st, (key, value) in zip(stations, temp.items()):
                     self.PointDic[key] = [i for _, i in sorted(zip(st, value))]
                 famdoc.Close(False)
@@ -1037,7 +1054,7 @@ class form_window(WPFWindow):
                     name = key
                     number = len(value)
                     isloaded = True
-                    alloffset = [data[3] for data in value]
+                    alloffset = [data[4] for data in value]
                     uniqueoffset = set(alloffset)
                     if len(uniqueoffset) == 1:
                         offset = list(uniqueoffset)[0]
@@ -1057,7 +1074,7 @@ class form_window(WPFWindow):
                     for i in value:
                         self.DetailPointContents[num].Add(
                             DetailPointTableFormat(
-                                index_detail, i[1], i[0], i[-1], True, i[3], i[2]
+                                index_detail, i[0], i[2], float(i[1]), i[-1], True, i[4], i[3]
                             )
                         )
                         index_detail = index_detail + 1
@@ -1085,15 +1102,11 @@ class form_window(WPFWindow):
         global horizAlignment, updatedHorzAlignment
         if updatedHorzAlignment:
             try:
-                opt = DB.Options()
-                opt.ComputeReferences = True
-                opt.IncludeNonVisibleObjects = False
-                opt.View = revit.doc.ActiveView
-                geometry = Flatten([elem.get_Geometry(opt) for elem in horizAlignment])
+                geometry = Flatten([elem.GeometryCurve for elem in horizAlignment])
                 geometry = [g for g in geometry]
                 crvtype = [g.GetType().Name for g in geometry]
                 updatedHorzAlignment = False
-                debugEdit(self,"Loaded {} Number of Curves".format(len(crvtype)))
+                debugEdit(self,"Loaded Number of Curves : {}".format(crvtype))
             except Exception as e:
                 debugEdit(self,"Importing curve is failed. \n{}".format(len(crvtype)))
             try:
@@ -1111,9 +1124,10 @@ class form_window(WPFWindow):
                         interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
                 internal_alignment = factory.PolyCurveEntity(interGeometry)
                 if internal_alignment.IsValid:
-                    debugHorizontal(self,"Alignment Validataion :{}".format(internal_alignment.IsValid))
+                    debugEdit(self,"Additional Curve Validataion :{}".format(internal_alignment.IsValid))
                 else:
-                    debugHorizontal(self,"Imported Curves are not continuous!")
+                    debugEdit(self,"Imported Curves are not continuous!")
+                    return False
             except Exception as e:
                 debugEdit(self, "Converting Geometry Failed.")
                 debugEdit(self, "{}".format(e))
@@ -1123,7 +1137,6 @@ class form_window(WPFWindow):
                 famdoc = revit.doc.EditFamily(self.family)
                 collector = DB.FilteredElementCollector(famdoc)
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
-                name = [e.Name.split("/") for e in refPoints]
                 point = []
                 for e in refPoints:
                     if e.Name.split("/")[1] == "Main":
@@ -1135,7 +1148,6 @@ class form_window(WPFWindow):
                         ft2mm(p.GetCoordinateSystem().Origin.Y))
                     )
                 XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
-                debugEdit(self, "{},{}".format(XY, XVec_revit))
                 XVec = []
                 for v in XVec_revit:
                     XVec.append(factory.VectorEntity(v.X, v.Y))
@@ -1149,14 +1161,81 @@ class form_window(WPFWindow):
                     Int_Point_Right.append(internal_alignment.IntersectWith(line, False))
                 Int_Point_Left = factory.Flatten(Int_Point_Left)
                 Int_Point_Right = factory.Flatten(Int_Point_Right)
-                debugEdit(self, "{},,,,,,,,,,,,,,{}".format(Int_Point_Left, Int_Point_Right))
                 if len(Int_Point_Left) >= len(Int_Point_Right):
-                    a = [p() for p in Int_Point_Left]
+                    IsLeft = True
+                    Int_Point = [p for p in Int_Point_Left]
                 else:
-                    a = [p() for p in Int_Point_Right]
-                debugEdit(self, "{}".format(a))
+                    IsLeft = False
+                    Int_Point = [p for p in Int_Point_Right]
+                debugEdit(self, "{}".format(XY))
+                debugEdit(self, "{}".format(Int_Point))
+                diatances = [pt.DistanceTo(int_pt) for pt, int_pt in zip(XY, Int_Point)]
+                debugEdit(self, "{}".format(diatances))
             except Exception as e:
                 debugEdit(self, "Finding Intersection Is Failed.")
                 debugEdit(self, "{}".format(e))
+            
+            try:
+                ss = self.stationStart.Text
+                se = self.stationEnd.Text
+                pt_name = self.PT_Name.Text
+                if ss == "" or se == "":
+                    debugEdit(self, "Start or End Stations are not defined.")
+                    return False
+                if pt_name == "":
+                    debugEdit(self, "Point Name is not defined.")
+                    updatedHorzAlignment = True
+                    return False
+                stations = [float(value[1]) for value in self.PointDic['Main']]
+                SE_Slope = [i.Slope for i in self.SuperElevationContents]
+                SE_Station = [i.Station for i in self.SuperElevationContents]
+                self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
+                slope = self.VC.SuperElevationAtStation(stations, SE_Slope, SE_Station)
+                debugEdit(self, "value : {},,,{}".format(slope, stations))
+                if IsLeft:
+                    d_elev = [(s * dist) * 0.01 * 0.001 for s, dist in zip(slope, diatances)]
+                else:
+                    d_elev = [(s * dist) * 0.01 * 0.001 * -1 for s, dist in zip(slope, diatances)]
+                elevation = [e[0] + d_e for e, d_e in zip(self.PointDic['Main'], d_elev)]
+                point_set = []
+                debugEdit(self, "value : {},,,{}".format(d_elev, elevation))
+                #Station / Elevation / Slope / Offset
+                for e, stn, s, dist in zip(elevation, stations, slope, diatances):
+                    point_set.append([stn, e, s, round(dist * 0.001, 2)])
+                debugEdit(self, "value : {}".format(point_set))
+                index = self.GeneralPointContents.Count
+                number = len(point_set)
+                alloffset = [data[3] for data in point_set]
+                uniqueoffset = set(alloffset)
+                if len(uniqueoffset) == 1:
+                    offset = list(uniqueoffset)[0]
+                else:
+                    offset = "various"
+                self.GeneralPointContents.Add(
+                    GeneralPointTableFormat(
+                        index, pt_name, number, False, offset
+                    )
+                )
+                num = len(self.DetailPointContents)
+                self.DetailPointContents.append([])
+                self.DetailPointContents[num] = ObservableCollection[object]()
+                index_detail = 0
+                for i in point_set:
+                    self.DetailPointContents[num].Add(
+                        DetailPointTableFormat(
+                            index_detail, i[1], pt_name, i[0], None, False, i[3], i[2] 
+                        )
+                    )
+                    index_detail = index_detail + 1
+                self.PT_Name.Text = ""
+            except Exception as e:
+                debugEdit(self, "Calculating Slope is failed.")
+                debugEdit(self, "{}".format(e))
+
+    def Clk_UpdateModel(self, sender, e):
+        try:
+            True
+        except Exception as e:
+            debugEdit(self, "{}".format(e))
 
 form = form_window("ui.xaml")

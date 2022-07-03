@@ -287,6 +287,7 @@
                         <DataGridTextColumn Header="Index" Binding="{Binding Index}"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
                         <DataGridTextColumn Header="Station" Binding="{Binding Station}"/>
+                        <DataGridTextColumn Header="Elevation" Binding="{Binding Elevation}"/>
                         <DataGridTextColumn Header="Slope" Binding="{Binding Slope}"/>
                         <DataGridTextColumn Header="Offset" Binding="{Binding Offset}"/>
                         <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
@@ -351,7 +352,7 @@
                         </Grid.ColumnDefinitions>
                         <Label Grid.Row="0" Margin="10,5,10,5"
                             Content="Point Set Name"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Margin="10,5,10,5"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="PT_Name" Margin="10,5,10,5"/>
                         <RadioButton Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"
                                      GroupName="PjtMethod" Margin="10,0,0,0" IsChecked="True">
                             <RadioButton.Content>
@@ -378,7 +379,7 @@
                         <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table" x:Name="Btn_AddTable"
                                 Margin="10,5,10,5" IsEnabled="False" Click="Clk_AddExtraToTable"/>
                         <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Update to Alignment Model"
-                                Margin="10,5,10,5" IsEnabled="False"/>
+                                Margin="10,5,10,5" IsEnabled="False" Click="Clk_UpdateModel"/>
                     </Grid>
                 </Grid>
             </Grid>
