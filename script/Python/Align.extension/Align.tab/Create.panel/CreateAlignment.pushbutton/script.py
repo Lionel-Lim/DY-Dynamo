@@ -233,9 +233,9 @@ def select_SelectFullAlignment(self):
 def updateAlignment(self, alignment, PointContents):
     try:
         lineRefPointName = [i.Name for i in self.GeneralPointContents if i.LineReference]
-        boundPoints = [[],[]]
         isleft = []
-        lineIndex = 0
+        lineIndex = []
+        boundPoints = []
     except Exception as e:
         UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
 
@@ -247,17 +247,19 @@ def updateAlignment(self, alignment, PointContents):
         collector = DB.FilteredElementCollector(famdoc)
         revitPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
         point = []
+        crvArray = DB.ReferencePointArray()
         #Get Only Main Points
         for e in revitPoints:
             if e.Name.split("/")[1] == "Main":
                 point.append(e)
+                crvArray.Append(e)
         definition = [i.Definition for i in point[0].Parameters if i.Definition.Name == "Offset"][0]
         XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
         t = DB.Transaction(famdoc)
         t.Start("Create Reference Point")
-        sketchPln = DB.SketchPlane.Create(famdoc, levelRef)
-        for pointgroup, XVec in zip(PointContents, XVec_revit):
-            for pt in pointgroup:
+        famdoc.FamilyCreate.NewCurveByPoints(crvArray)
+        for index, pointgroup in enumerate(PointContents):
+            for pt, XVec in zip(pointgroup, XVec_revit):
                 if pt.IsLoaded == False:
                     station = pt.Station
                     slope = pt.Slope
@@ -267,7 +269,7 @@ def updateAlignment(self, alignment, PointContents):
                     InternalXY = pt.InternalPoint
                     RevitXYZ = DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), 0)
                     if name in lineRefPointName:
-                        boundPoints[lineIndex].append(RevitXYZ)
+                        lineIndex.append(index)
                     pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, RevitXYZ, XVec)
                     refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
                     refPoint.Visible = True
@@ -275,20 +277,20 @@ def updateAlignment(self, alignment, PointContents):
                     refPoint.Parameter[definition.BuiltInParameter].Set(mm2ft(elev*1000))
                     pt.IsLoaded = True
                     pt.ID = refPoint.UniqueId
-            if pt.IsLoaded == False:
-                if name in lineRefPointName:
-                    lineIndex = -1
-                    if dist > 0:
-                        isleft.append(True)
-                    else:
-                        isleft.append(False)
-        if isleft[0]:
-            boundPoints.reverse()
+            
+        for index, i in enumerate(list(set(lineIndex))):
+            boundPoints.append([])
+            for pt in PointContents[i]:
+                InternalXY = pt.InternalPoint
+                boundPoints[index].append(DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), mm2ft(pt.Elevation*1000)))
+        UI.TaskDialog.Show("Error", "{}".format(boundPoints))
         boundPoints = [list(i) for i in zip(*boundPoints)]
         lines = [DB.Line.CreateBound(i[0], i[1]) for i in boundPoints]
+        pln = [DB.Plane.CreateByThreePoints(i[0], i[1], DB.XYZ(i[1].X, i[1].Y, 0)) for i in boundPoints]
+        sketchPln = [DB.SketchPlane.Create(famdoc, p) for p in pln]
         modelCrvs = []
-        for line in lines:
-            modelCrvs.append(famdoc.FamilyCreate.NewModelCurve(line, sketchPln))
+        for line, skt in zip(lines, sketchPln):
+            modelCrvs.append(famdoc.FamilyCreate.NewModelCurve(line, skt))
 
         t.Commit()
         famdoc.Save()
@@ -1302,10 +1304,7 @@ class form_window(WPFWindow):
                 SE_Station = [i.Station for i in self.SuperElevationContents]
                 self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
                 slope = self.VC.SuperElevationAtStation(stations, SE_Slope, SE_Station)
-                if IsLeft:
-                    d_elev = [(s * dist) * 0.01 * 0.001 for s, dist in zip(slope, diatances)]
-                else:
-                    d_elev = [(s * dist) * 0.01 * 0.001 * -1 for s, dist in zip(slope, diatances)]
+                d_elev = [(s * dist) * 0.01 * 0.001 for s, dist in zip(slope, diatances)]
                 elevation = [e[0] + d_e for e, d_e in zip(self.PointDic['Main'], d_elev)]
                 point_set = []
                 #Station / Elevation / Slope / Offset
