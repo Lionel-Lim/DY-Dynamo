@@ -230,23 +230,79 @@ def select_SelectFullAlignment(self):
         except:
             updatedFullAlignment = False
     
-def updateAlignment(self, famdoc):
-    with db.Transaction("Create Reference Points"):
-        try:
-            #This Transaction is for family document
-            t = DB.Transaction(famdoc)
-            t.Start("Create Reference Point")
-            for s, pt, d in zip(displaystations, points, dir):
-                pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, DB.XYZ(mm2ft(pt.X), mm2ft(pt.Y), 0), DB.XYZ(d.X,d.Y,0))
-                refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
-                #Assign parameters
-                refPoint.Visible = True
-                refPoint.Name = "{}/Main//0/{}".format(s, refPoint.UniqueId)
-                ids.append(refPoint.UniqueId)
-            t.Commit()
-        except Exception as e:
-            UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
-            t.Commit()
+def updateAlignment(self, alignment, PointContents):
+    try:
+        lineRefPointName = [i.Name for i in self.GeneralPointContents if i.LineReference]
+        boundPoints = [[],[]]
+        isleft = []
+        lineIndex = 0
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
+
+    # with db.Transaction("Update Alignment"):
+    try:
+        family = alignment.Symbol.Family
+        famdoc = revit.doc.EditFamily(family)
+        levelRef = get_levels(famdoc)[0].GetPlaneReference()
+        collector = DB.FilteredElementCollector(famdoc)
+        revitPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+        point = []
+        #Get Only Main Points
+        for e in revitPoints:
+            if e.Name.split("/")[1] == "Main":
+                point.append(e)
+        definition = [i.Definition for i in point[0].Parameters if i.Definition.Name == "Offset"][0]
+        XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
+        t = DB.Transaction(famdoc)
+        t.Start("Create Reference Point")
+        sketchPln = DB.SketchPlane.Create(famdoc, levelRef)
+        for pointgroup, XVec in zip(PointContents, XVec_revit):
+            for pt in pointgroup:
+                if pt.IsLoaded == False:
+                    station = pt.Station
+                    slope = pt.Slope
+                    dist = pt.Offset
+                    elev = pt.Elevation
+                    name = pt.Name
+                    InternalXY = pt.InternalPoint
+                    RevitXYZ = DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), 0)
+                    if name in lineRefPointName:
+                        boundPoints[lineIndex].append(RevitXYZ)
+                    pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, RevitXYZ, XVec)
+                    refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
+                    refPoint.Visible = True
+                    refPoint.Name = "{}/{}/{}/{}/{}".format(station, name, slope, dist, refPoint.UniqueId)
+                    refPoint.Parameter[definition.BuiltInParameter].Set(mm2ft(elev*1000))
+                    pt.IsLoaded = True
+                    pt.ID = refPoint.UniqueId
+            if pt.IsLoaded == False:
+                if name in lineRefPointName:
+                    lineIndex = -1
+                    if dist > 0:
+                        isleft.append(True)
+                    else:
+                        isleft.append(False)
+        if isleft[0]:
+            boundPoints.reverse()
+        boundPoints = [list(i) for i in zip(*boundPoints)]
+        lines = [DB.Line.CreateBound(i[0], i[1]) for i in boundPoints]
+        modelCrvs = []
+        for line in lines:
+            modelCrvs.append(famdoc.FamilyCreate.NewModelCurve(line, sketchPln))
+
+        t.Commit()
+        famdoc.Save()
+        family1 = famdoc.LoadFamily(revit.doc, FamOpt1())
+        famdoc.Close(True)
+        for i in self.GeneralPointContents:
+            i.IsLoaded = True
+        self.GeneralPointTable.ItemsSource = ""
+        self.GeneralPointTable.ItemsSource = self.GeneralPointContents
+        self.Grd_AddExtraPoint.IsEnabled = False
+
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
+        t.Commit()
 """
 Revit API Methods End
 """
@@ -304,15 +360,16 @@ class SuperElevationTableFormat:
         self.Slope = slope
 
 class GeneralPointTableFormat:
-    def __init__(self, index, name, number, isloaded, offset):
+    def __init__(self, index, name, number, isloaded, offset, linereference=False):
         self.Index = index
         self.Name = name
         self.Number = number
         self.IsLoaded = isloaded
         self.Offset = offset
+        self.LineReference = linereference
 
 class DetailPointTableFormat:
-    def __init__(self, index, elevation, name, station, id, isloaded, offset, slope):
+    def __init__(self, index, elevation, name, station, id, isloaded, offset, slope, point=None):
         self.Index = index
         self.Elevation = elevation
         self.Name = name
@@ -321,6 +378,7 @@ class DetailPointTableFormat:
         self.IsLoaded = isloaded
         self.Offset = offset
         self.Slope = slope
+        self.InternalPoint = point
 """
 WPF Data Table Format End
 """
@@ -1018,15 +1076,21 @@ class form_window(WPFWindow):
         global FullAlignment, updatedFullAlignment
         loaded = False
         try:
+            #Load Alignment Model
             if updatedFullAlignment:
+                #Get All Reference Point in Alignement
                 self.family = FullAlignment.Symbol.Family
                 famdoc = revit.doc.EditFamily(self.family)
                 collector = DB.FilteredElementCollector(famdoc)
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
                 definition = [i.Definition for i in refPoints[0].Parameters if i.Definition.Name == "Offset"][0]
+                #Get Name Parameter in Reference Point and save that as List
                 name = [e.Name.split("/") for e in refPoints]
+                #Add Offset Parameter into above List
                 for pt, n in zip(refPoints, name):
-                    n.insert(0, round(ft2mm(pt.Parameter[definition.BuiltInParameter].AsDouble()),2) * 0.001)
+                    n.insert(0, round(ft2mm(pt.Parameter[definition.BuiltInParameter].AsDouble()) * 0.001, 5))
+                #Create Dictionary to sort out all data by point group and by station
+                #Temp Dictionary Key is Point Group Name(i[2])
                 temp = defaultdict(list)
                 self.PointDic = defaultdict(list)
                 for i in name:
@@ -1036,6 +1100,7 @@ class form_window(WPFWindow):
                     stations.append([])
                     for j in i:
                         stations[index].append(float(j[1]))
+                #Sort Each Point Group List by station and Save in PointDic
                 for st, (key, value) in zip(stations, temp.items()):
                     self.PointDic[key] = [i for _, i in sorted(zip(st, value))]
                 famdoc.Close(False)
@@ -1048,6 +1113,9 @@ class form_window(WPFWindow):
 
         try:
             self.GeneralPointContents.Clear()
+            #If above steps are going through without problem loaded will be True
+            #From this step, Alignment family data will be stored in ObservableCollection
+            #To display it in the window
             if loaded:
                 for num, (key, value) in enumerate(self.PointDic.items()):
                     index = self.GeneralPointContents.Count
@@ -1133,47 +1201,90 @@ class form_window(WPFWindow):
                 debugEdit(self, "{}".format(e))
 
             try:
+                if self.stationStart.Text == "":
+                    debugEdit(self, "Start Station is not defined.")
+                    updatedHorzAlignment = True
+                    return False
+                else:
+                    StartStation = float(self.stationStart.Text)
+                #Get All Reference Point from Alignment Family
                 create = factory.CreateEntity()
                 famdoc = revit.doc.EditFamily(self.family)
                 collector = DB.FilteredElementCollector(famdoc)
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
                 point = []
+                #Get Only Main Points
                 for e in refPoints:
                     if e.Name.split("/")[1] == "Main":
                         point.append(e)
+                #Convert Revit Main Points to Internal Points
                 XY = []
+                revitXY = []
                 for p in point:
                     XY.append(factory.PointEntity(
                         ft2mm(p.GetCoordinateSystem().Origin.X),
                         ft2mm(p.GetCoordinateSystem().Origin.Y))
                     )
+                    revitXY.append(DB.XYZ(p.GetCoordinateSystem().Origin.X, p.GetCoordinateSystem().Origin.Y, 0))
+                #Get Revit Transform - X Axis
+                #Calculate X Axis Vector Based on User Selection
+                #Updated Required - Creating Hermite and getting Normal and Tangent is not working as intended.
+                # if self.RBtn_AlignmentNormal.IsChecked:
+                #     stations = [mm2ft((float(i.Station) - StartStation) * 1000) for i in self.DetailPointContents[0]]
+                #     XVec_revit = []
+                #     test = []
+                #     revitCurve = DB.HermiteSpline.Create(revitXY, True)
+                #     revitCurve_Transform = [revitCurve.ComputeDerivatives(s, False) for s in stations]
+                #     for t in revitCurve_Transform:
+                #         if t.BasisY.CrossProduct(t.BasisX).Z >= 0:
+                #             XVec_revit.append(DB.XYZ(t.BasisX.X, t.BasisX.Y, 0))
+                #             test.append(t)
+                #         else:
+                #             XVec_revit.append(DB.XYZ(-(t.BasisX.Y), -(t.BasisX.Y), 0))
+                #             test.append(t)
+                # elif self.RBtn_PointNormal.IsChecked:
+                #     XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
                 XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
                 XVec = []
                 for v in XVec_revit:
                     XVec.append(factory.VectorEntity(v.X, v.Y))
+                #Create Internal Line to find intersection points
                 int_line_left = [create.LineByPointAndDirection(p, dir, 10000000000) for p, dir in zip(XY, XVec)]
                 int_line_right = [create.LineByPointAndDirection(p, dir.Reverse(), 10000000000) for p, dir in zip(XY, XVec)]
                 Int_Point_Left = []
                 Int_Point_Right = []
-                for line in int_line_left:
-                    Int_Point_Left.append(internal_alignment.IntersectWith(line, False))
-                for line in int_line_right:
-                    Int_Point_Right.append(internal_alignment.IntersectWith(line, False))
-                Int_Point_Left = factory.Flatten(Int_Point_Left)
-                Int_Point_Right = factory.Flatten(Int_Point_Right)
-                if len(Int_Point_Left) >= len(Int_Point_Right):
+                notIntersect_Left = []
+                notIntersect_Right = []
+                #Find Intersection points with target curves
+                #Save not intersected point with 
+                for indedx, line in enumerate(int_line_left):
+                    temp_pt = internal_alignment.IntersectWith(line, False)
+                    if temp_pt:
+                        Int_Point_Left.append(temp_pt[0])
+                    else:
+                        notIntersect_Left.append(indedx)
+                for indedx, line in enumerate(int_line_right):
+                    temp_pt = internal_alignment.IntersectWith(line, False)
+                    if temp_pt:
+                        Int_Point_Right.append(temp_pt[0])
+                    else:
+                        notIntersect_Right.append(indedx)
+                if len(Int_Point_Left) == len(XY):
                     IsLeft = True
                     Int_Point = [p for p in Int_Point_Left]
-                else:
+                elif len(Int_Point_Right) == len(XY):
                     IsLeft = False
                     Int_Point = [p for p in Int_Point_Right]
-                debugEdit(self, "{}".format(XY))
-                debugEdit(self, "{}".format(Int_Point))
-                diatances = [pt.DistanceTo(int_pt) for pt, int_pt in zip(XY, Int_Point)]
-                debugEdit(self, "{}".format(diatances))
+                else:
+                    UI.TaskDialog.Show("Error", "Cannot find the intersection point(s) on following index : \n left- {} \n right - {}".format(notIntersect_Left, notIntersect_Right))
+                    updatedHorzAlignment = True
+                    return False
+                debugEdit(self, "Point Indices not matched\nleft - {} \nright - {}".format(notIntersect_Left, notIntersect_Right))
+                diatances = [pt.DistanceTo(int_pt) if IsLeft else -pt.DistanceTo(int_pt) for pt, int_pt in zip(XY, Int_Point)]
             except Exception as e:
                 debugEdit(self, "Finding Intersection Is Failed.")
                 debugEdit(self, "{}".format(e))
+                famdoc.Close(False)
             
             try:
                 ss = self.stationStart.Text
@@ -1191,18 +1302,15 @@ class form_window(WPFWindow):
                 SE_Station = [i.Station for i in self.SuperElevationContents]
                 self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
                 slope = self.VC.SuperElevationAtStation(stations, SE_Slope, SE_Station)
-                debugEdit(self, "value : {},,,{}".format(slope, stations))
                 if IsLeft:
                     d_elev = [(s * dist) * 0.01 * 0.001 for s, dist in zip(slope, diatances)]
                 else:
                     d_elev = [(s * dist) * 0.01 * 0.001 * -1 for s, dist in zip(slope, diatances)]
                 elevation = [e[0] + d_e for e, d_e in zip(self.PointDic['Main'], d_elev)]
                 point_set = []
-                debugEdit(self, "value : {},,,{}".format(d_elev, elevation))
                 #Station / Elevation / Slope / Offset
                 for e, stn, s, dist in zip(elevation, stations, slope, diatances):
-                    point_set.append([stn, e, s, round(dist * 0.001, 2)])
-                debugEdit(self, "value : {}".format(point_set))
+                    point_set.append([stn, e, s, round(dist, 2)])
                 index = self.GeneralPointContents.Count
                 number = len(point_set)
                 alloffset = [data[3] for data in point_set]
@@ -1220,22 +1328,35 @@ class form_window(WPFWindow):
                 self.DetailPointContents.append([])
                 self.DetailPointContents[num] = ObservableCollection[object]()
                 index_detail = 0
-                for i in point_set:
+                for i, pt in zip(point_set, Int_Point):
                     self.DetailPointContents[num].Add(
                         DetailPointTableFormat(
-                            index_detail, i[1], pt_name, i[0], None, False, i[3], i[2] 
+                            index_detail, i[1], pt_name, i[0], None, False, i[3], i[2], pt
                         )
                     )
                     index_detail = index_detail + 1
                 self.PT_Name.Text = ""
+                self.Btn_UpdateFamily.IsEnabled = True            
             except Exception as e:
                 debugEdit(self, "Calculating Slope is failed.")
                 debugEdit(self, "{}".format(e))
+                famdoc.Close(False)
+            famdoc.Close(False)
 
     def Clk_UpdateModel(self, sender, e):
-        try:
-            True
-        except Exception as e:
-            debugEdit(self, "{}".format(e))
+        global FullAlignment
+        cnt = 0
+        for i in self.GeneralPointContents:
+            if i.LineReference == True:
+                cnt = cnt + 1
+        if cnt > 2:
+            debugEdit(self, "Select only Two Line Reference in the Table")
+            return False
+        elif cnt <2:
+            debugEdit(self, "Select only Two Line Reference in the Table")
+            return False
+        else:
+            self.ChkBoxCol.IsReadOnly = True
+            customizable_event.raise_event(updateAlignment, self, FullAlignment, self.DetailPointContents)
 
 form = form_window("ui.xaml")
