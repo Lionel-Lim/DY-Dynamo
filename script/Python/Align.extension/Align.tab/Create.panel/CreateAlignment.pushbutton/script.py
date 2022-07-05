@@ -247,18 +247,20 @@ def updateAlignment(self, alignment, PointContents):
         collector = DB.FilteredElementCollector(famdoc)
         revitPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
         point = []
-        crvArray = DB.ReferencePointArray()
+        AlignmentArray = DB.ReferencePointArray()
+        refPointArray = []
         #Get Only Main Points
         for e in revitPoints:
             if e.Name.split("/")[1] == "Main":
                 point.append(e)
-                crvArray.Append(e)
+                AlignmentArray.Append(e)
         definition = [i.Definition for i in point[0].Parameters if i.Definition.Name == "Offset"][0]
         XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
         t = DB.Transaction(famdoc)
         t.Start("Create Reference Point")
-        famdoc.FamilyCreate.NewCurveByPoints(crvArray)
+        alignment3D = famdoc.FamilyCreate.NewCurveByPoints(AlignmentArray)
         for index, pointgroup in enumerate(PointContents):
+            refPointArray.append([])
             for pt, XVec in zip(pointgroup, XVec_revit):
                 if pt.IsLoaded == False:
                     station = pt.Station
@@ -266,12 +268,13 @@ def updateAlignment(self, alignment, PointContents):
                     dist = pt.Offset
                     elev = pt.Elevation
                     name = pt.Name
-                    InternalXY = pt.InternalPoint
-                    RevitXYZ = DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), 0)
                     if name in lineRefPointName:
                         lineIndex.append(index)
+                    InternalXY = pt.InternalPoint
+                    RevitXYZ = DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), 0)
                     pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, RevitXYZ, XVec)
                     refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
+                    refPointArray[index].append(refPoint)
                     refPoint.Visible = True
                     refPoint.Name = "{}/{}/{}/{}/{}".format(station, name, slope, dist, refPoint.UniqueId)
                     refPoint.Parameter[definition.BuiltInParameter].Set(mm2ft(elev*1000))
@@ -280,18 +283,24 @@ def updateAlignment(self, alignment, PointContents):
             
         for index, i in enumerate(list(set(lineIndex))):
             boundPoints.append([])
-            for pt in PointContents[i]:
-                InternalXY = pt.InternalPoint
-                boundPoints[index].append(DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), mm2ft(pt.Elevation*1000)))
-        UI.TaskDialog.Show("Error", "{}".format(boundPoints))
+            for pt, refPt in zip(PointContents[i], refPointArray[i]):
+                boundPoints[index].append(refPt)
         boundPoints = [list(i) for i in zip(*boundPoints)]
-        lines = [DB.Line.CreateBound(i[0], i[1]) for i in boundPoints]
-        pln = [DB.Plane.CreateByThreePoints(i[0], i[1], DB.XYZ(i[1].X, i[1].Y, 0)) for i in boundPoints]
-        sketchPln = [DB.SketchPlane.Create(famdoc, p) for p in pln]
         modelCrvs = []
-        for line, skt in zip(lines, sketchPln):
-            modelCrvs.append(famdoc.FamilyCreate.NewModelCurve(line, skt))
-
+        RefLineArray = DB.ReferencePointArray()
+        SurfaceReferenceArr = DB.ReferenceArray()
+        SurfaceReferenceArrArr = DB.ReferenceArrayArray()
+        for pts in boundPoints:
+            RefLineArray.Append(pts[0])
+            RefLineArray.Append(pts[1])
+            famdoc.FamilyCreate.NewCurveByPoints(RefLineArray)
+            modelCrvs.append(famdoc.FamilyCreate.NewCurveByPoints(RefLineArray))
+            RefLineArray = DB.ReferencePointArray()
+        for line in modelCrvs:
+            SurfaceReferenceArr.Append(line.GeometryCurve.Reference)
+            SurfaceReferenceArrArr.Append(SurfaceReferenceArr)
+            SurfaceReferenceArr = DB.ReferenceArray()
+        loftform = famdoc.FamilyCreate.NewLoftForm(True, SurfaceReferenceArrArr)
         t.Commit()
         famdoc.Save()
         family1 = famdoc.LoadFamily(revit.doc, FamOpt1())
@@ -960,6 +969,7 @@ class form_window(WPFWindow):
         
     def Clk_FindPts(self, sender, e):
         global intersectionPoints, internal_alignment, NormalDirection
+        self.HorizontalPointContents.Clear()
         try:
             lastIndex = 0
             for i in self.HorizontalPointContents:
@@ -972,6 +982,8 @@ class form_window(WPFWindow):
                 for pt, nor in zip(intersectionPoints, NormalDirection):
                     station = internal_alignment.SegmentLengthAtPoint(pt)
                     cross = internal_alignment.TangentAtSegmentLength(station).CrossProduct(nor)
+                    tan = internal_alignment.TangentAtSegmentLength(station)
+                    debugHorizontal(self, "nor : {}\n tan: {}\n".format(nor(), tan()))
                     if cross > 0.5:
                         temp_nor.append(nor)
                     else:
@@ -1261,32 +1273,48 @@ class form_window(WPFWindow):
                 #Save not intersected point with 
                 for indedx, line in enumerate(int_line_left):
                     temp_pt = internal_alignment.IntersectWith(line, False)
-                    if temp_pt:
-                        Int_Point_Left.append(temp_pt[0])
-                    else:
+                    Int_Point_Left.append(temp_pt)
+                    if not temp_pt:
                         notIntersect_Left.append(indedx)
                 for indedx, line in enumerate(int_line_right):
                     temp_pt = internal_alignment.IntersectWith(line, False)
-                    if temp_pt:
-                        Int_Point_Right.append(temp_pt[0])
-                    else:
+                    Int_Point_Right.append(temp_pt)
+                    if not temp_pt:
                         notIntersect_Right.append(indedx)
-                if len(Int_Point_Left) == len(XY):
+                debugEdit(self, "Point Indices not matched\nleft - {} \nright - {}".format(Int_Point_Left, Int_Point_Right))
+                if not notIntersect_Left:
                     IsLeft = True
-                    Int_Point = [p for p in Int_Point_Left]
-                elif len(Int_Point_Right) == len(XY):
+                    Int_Point = Flatten(Int_Point_Left)
+                elif not Int_Point_Right:
                     IsLeft = False
-                    Int_Point = [p for p in Int_Point_Right]
+                    Int_Point = Flatten(Int_Point_Right)
                 else:
                     UI.TaskDialog.Show("Error", "Cannot find the intersection point(s) on following index : \n left- {} \n right - {}".format(notIntersect_Left, notIntersect_Right))
-                    updatedHorzAlignment = True
-                    return False
-                debugEdit(self, "Point Indices not matched\nleft - {} \nright - {}".format(notIntersect_Left, notIntersect_Right))
+                    mergeTo = ui.forms.SelectFromList("Do you want to merge found points to :",{"Left":1, "Right":-1, "No Merge":False})
+                    if mergeTo:
+                        if mergeTo == 1:
+                            for index in notIntersect_Left:
+                                Int_Point_Left[index] = Int_Point_Right[index]
+                            debugEdit(self, "{}".format(Int_Point_Left))
+                            IsLeft = True
+                            Int_Point = Flatten(Int_Point_Left)
+                        else:
+                            for index in notIntersect_Right:
+                                Int_Point_Right[index] = Int_Point_Left[index]
+                            debugEdit(self, "{}".format(Int_Point_Right))
+                            IsLeft = False
+                            Int_Point = Flatten(Int_Point_Right)
+                    else:
+                        updatedHorzAlignment = True
+                        return False
+                debugEdit(self, "Point Indices not matched\nleft - {} \nright - {}".format(Int_Point_Left, Int_Point_Right))
+                debugEdit(self, "{}".format(Int_Point))
                 diatances = [pt.DistanceTo(int_pt) if IsLeft else -pt.DistanceTo(int_pt) for pt, int_pt in zip(XY, Int_Point)]
             except Exception as e:
                 debugEdit(self, "Finding Intersection Is Failed.")
                 debugEdit(self, "{}".format(e))
                 famdoc.Close(False)
+                return False
             
             try:
                 ss = self.stationStart.Text

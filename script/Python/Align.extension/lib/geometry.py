@@ -414,7 +414,7 @@ class ArcEntity:
     
     def TangentAtSegmentLength(self, segmentlength):
         norm = self.NormalAtSegmentLength(segmentlength)
-        cross = VectorEntity(-norm.Y*1 - 0*0, 0*0 + norm.X*1).Normalise()
+        cross = VectorEntity(norm.Y*1 - 0*0, 0*0 + -norm.X*1).Normalise()
         return cross
 
 class PolyCurveEntity:
