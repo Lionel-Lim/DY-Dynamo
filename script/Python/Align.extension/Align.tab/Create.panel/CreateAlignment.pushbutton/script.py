@@ -204,7 +204,7 @@ def setAlignmentParameter(parameter, value):
         t.Start("Edit Parameter")
         collector = DB.FilteredElementCollector(famdoc)
         refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
-        name = [e.Name.split("/") for e in refPoints]
+        name = [e.Name.split("/") for e in refPoints if e.Name]
         data = {float(n[0]) : pt for pt, n in zip(refPoints, name)}
         sortedData = sorted(data.items(), key=operator.itemgetter(0))
         sortedData = OrderedDict(sortedData)
@@ -239,48 +239,63 @@ def updateAlignment(self, alignment, PointContents):
     except Exception as e:
         UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
 
-    # with db.Transaction("Update Alignment"):
     try:
         family = alignment.Symbol.Family
         famdoc = revit.doc.EditFamily(family)
-        levelRef = get_levels(famdoc)[0].GetPlaneReference()
         collector = DB.FilteredElementCollector(famdoc)
         revitPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
         point = []
+        XVec_revit = []
+        workPlane = []
+        RefSlope = []
         AlignmentArray = DB.ReferencePointArray()
         refPointArray = []
+        t = DB.Transaction(famdoc)
+        t.Start("Create Reference Point")
         #Get Only Main Points
         for e in revitPoints:
             if e.Name.split("/")[1] == "Main":
                 point.append(e)
                 AlignmentArray.Append(e)
-        definition = [i.Definition for i in point[0].Parameters if i.Definition.Name == "Offset"][0]
-        XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
-        t = DB.Transaction(famdoc)
-        t.Start("Create Reference Point")
+        definition_Angle = [i.Definition for i in point[0].Parameters if i.Definition.Name == "Rotation Angle"][0]
+        for p in point:
+            XVec = p.GetCoordinateSystem().BasisX.Normalize()
+            XVec_revit.append(XVec)
+            origin = p.GetCoordinateSystem().Origin
+            Normal = DB.XYZ(0,0,-1).CrossProduct(XVec).Normalize()
+            DBPlane = DB.Plane.CreateByNormalAndOrigin(Normal, origin)
+            planeRef = DB.SketchPlane.Create(famdoc, DBPlane).GetPlaneReference()
+            workPlane.append(planeRef)
+            tempPt = DB.PointOnPlane.NewPointOnPlane(famdoc, planeRef, origin, XVec)
+            p.SetPointElementReference(tempPt)
         alignment3D = famdoc.FamilyCreate.NewCurveByPoints(AlignmentArray)
         for index, pointgroup in enumerate(PointContents):
             refPointArray.append([])
-            for pt, XVec in zip(pointgroup, XVec_revit):
+            for pt, XVec, plane in zip(pointgroup, XVec_revit, workPlane):
                 if pt.IsLoaded == False:
                     station = pt.Station
                     slope = pt.Slope
+                    RefSlope.append(slope)
                     dist = pt.Offset
                     elev = pt.Elevation
                     name = pt.Name
                     if name in lineRefPointName:
                         lineIndex.append(index)
                     InternalXY = pt.InternalPoint
-                    RevitXYZ = DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), 0)
-                    pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, levelRef, RevitXYZ, XVec)
+                    RevitXYZ = DB.XYZ(mm2ft(InternalXY.X), mm2ft(InternalXY.Y), mm2ft(elev*1000))
+                    pointRef = DB.PointOnPlane.NewPointOnPlane(famdoc, plane, RevitXYZ, XVec)
                     refPoint = famdoc.FamilyCreate.NewReferencePoint(pointRef)
                     refPointArray[index].append(refPoint)
                     refPoint.Visible = True
                     refPoint.Name = "{}/{}/{}/{}/{}".format(station, name, slope, dist, refPoint.UniqueId)
-                    refPoint.Parameter[definition.BuiltInParameter].Set(mm2ft(elev*1000))
+                    refPoint.Parameter[definition_Angle.BuiltInParameter].Set(math.atan(slope/100))
                     pt.IsLoaded = True
                     pt.ID = refPoint.UniqueId
-            
+        for slope, p in zip(RefSlope, point):
+            p.Parameter[definition_Angle.BuiltInParameter].Set(math.atan(slope/100))
+            parameters = p.Name.split("/")
+            p.Name = "{}/{}/{}/{}/{}".format(parameters[0], parameters[1], slope, parameters[3], parameters[4])
+
         for index, i in enumerate(list(set(lineIndex))):
             boundPoints.append([])
             for pt, refPt in zip(PointContents[i], refPointArray[i]):
@@ -741,7 +756,7 @@ class form_window(WPFWindow):
                 famdoc = revit.doc.EditFamily(family)
                 collector = DB.FilteredElementCollector(famdoc)
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
-                name = [e.Name.split("/") for e in refPoints]
+                name = [e.Name.split("/") for e in refPoints if e.Name]
                 data = {float(n[0]) : n[-1] for n in name}
                 sortedData = sorted(data.items(), key=operator.itemgetter(0))
                 sortedData = OrderedDict(sortedData)
@@ -1099,10 +1114,10 @@ class form_window(WPFWindow):
                 refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
                 definition = [i.Definition for i in refPoints[0].Parameters if i.Definition.Name == "Offset"][0]
                 #Get Name Parameter in Reference Point and save that as List
-                name = [e.Name.split("/") for e in refPoints]
+                name = [e.Name.split("/") for e in refPoints if e.Name]
                 #Add Offset Parameter into above List
                 for pt, n in zip(refPoints, name):
-                    n.insert(0, round(ft2mm(pt.Parameter[definition.BuiltInParameter].AsDouble()) * 0.001, 5))
+                    n.insert(0, round(ft2mm(pt.GetCoordinateSystem().Origin.Z) * 0.001, 5))
                 #Create Dictionary to sort out all data by point group and by station
                 #Temp Dictionary Key is Point Group Name(i[2])
                 temp = defaultdict(list)
@@ -1219,8 +1234,6 @@ class form_window(WPFWindow):
                     debugEdit(self, "Start Station is not defined.")
                     updatedHorzAlignment = True
                     return False
-                else:
-                    StartStation = float(self.stationStart.Text)
                 #Get All Reference Point from Alignment Family
                 create = factory.CreateEntity()
                 famdoc = revit.doc.EditFamily(self.family)
@@ -1240,24 +1253,6 @@ class form_window(WPFWindow):
                         ft2mm(p.GetCoordinateSystem().Origin.Y))
                     )
                     revitXY.append(DB.XYZ(p.GetCoordinateSystem().Origin.X, p.GetCoordinateSystem().Origin.Y, 0))
-                #Get Revit Transform - X Axis
-                #Calculate X Axis Vector Based on User Selection
-                #Updated Required - Creating Hermite and getting Normal and Tangent is not working as intended.
-                # if self.RBtn_AlignmentNormal.IsChecked:
-                #     stations = [mm2ft((float(i.Station) - StartStation) * 1000) for i in self.DetailPointContents[0]]
-                #     XVec_revit = []
-                #     test = []
-                #     revitCurve = DB.HermiteSpline.Create(revitXY, True)
-                #     revitCurve_Transform = [revitCurve.ComputeDerivatives(s, False) for s in stations]
-                #     for t in revitCurve_Transform:
-                #         if t.BasisY.CrossProduct(t.BasisX).Z >= 0:
-                #             XVec_revit.append(DB.XYZ(t.BasisX.X, t.BasisX.Y, 0))
-                #             test.append(t)
-                #         else:
-                #             XVec_revit.append(DB.XYZ(-(t.BasisX.Y), -(t.BasisX.Y), 0))
-                #             test.append(t)
-                # elif self.RBtn_PointNormal.IsChecked:
-                #     XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
                 XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
                 XVec = []
                 for v in XVec_revit:
@@ -1285,7 +1280,7 @@ class form_window(WPFWindow):
                 if not notIntersect_Left:
                     IsLeft = True
                     Int_Point = Flatten(Int_Point_Left)
-                elif not Int_Point_Right:
+                elif not notIntersect_Right:
                     IsLeft = False
                     Int_Point = Flatten(Int_Point_Right)
                 else:
@@ -1305,6 +1300,7 @@ class form_window(WPFWindow):
                             IsLeft = False
                             Int_Point = Flatten(Int_Point_Right)
                     else:
+                        debugEdit(self, "Adding Point is canceled.")
                         updatedHorzAlignment = True
                         return False
                 debugEdit(self, "Point Indices not matched\nleft - {} \nright - {}".format(Int_Point_Left, Int_Point_Right))
