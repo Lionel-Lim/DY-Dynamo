@@ -106,9 +106,11 @@
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Visible"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          ColumnWidth="*" IsReadOnly="True" Grid.Row="0" Grid.Column="0">
+                          ColumnWidth="*" IsReadOnly="True" Grid.Row="0" Grid.Column="0"
+                          SelectedCellsChanged="ViewDetailTable">
                     <DataGrid.Columns>
                         <DataGridTextColumn Binding="{Binding Index}" Header="Index"/>
+                        <DataGridTextColumn Binding="{Binding Name}" Header="Name"/>
                         <DataGridTextColumn Binding="{Binding Items}" Header="Items"/>
                         <DataGridTextColumn Binding="{Binding Total}" Header="Total"/>
                     </DataGrid.Columns>
@@ -117,15 +119,15 @@
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Visible"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          ColumnWidth="*" Grid.Row="1" Grid.Column="0">
+                          ColumnWidth="*" Grid.Row="1" Grid.Column="0"
+                          CurrentCellChanged="valueUpdated">
                     <DataGrid.Columns>
                         <DataGridTextColumn Binding="{Binding Index}" Header="Index" IsReadOnly="True"/>
                         <DataGridTextColumn Binding="{Binding FamilyName}" Header="Family Name" IsReadOnly="True"/>
-                        <DataGridTextColumn Binding="{Binding Parameters}" Header="Parameters" IsReadOnly="True"/>
-                        <DataGridComboBoxColumn TextBinding="{Binding ValueType}"
-                                                Header="Value Type" IsReadOnly="False"/>
+                        <DataGridTextColumn Binding="{Binding Parameter}" Header="Parameter" IsReadOnly="True"/>
+                        <DataGridTextColumn Binding="{Binding ValueType}" Header="Value Type" IsReadOnly="True"/>
                         <DataGridCheckBoxColumn Header="Inclue" Binding="{Binding IsIncluded}" IsReadOnly="False"/>
-                        <DataGridTextColumn Binding="{Binding CustomValue}" Header="CustomValue" IsReadOnly="True"/>
+                        <DataGridComboBoxColumn TextBinding="{Binding CustomValue}" x:Name="Combo_CustomValue" Header="CustomValue" IsReadOnly="False"/>
                     </DataGrid.Columns>
                 </DataGrid>
                 <TextBox Grid.Row="2" Grid.Column="0" x:Name="Log_P" Margin="10" IsReadOnly="True"/>

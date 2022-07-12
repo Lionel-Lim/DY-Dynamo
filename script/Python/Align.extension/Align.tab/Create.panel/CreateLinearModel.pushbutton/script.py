@@ -2,7 +2,7 @@ import re
 from event import CustomizableEvent
 import rpw
 from rpw import revit, db, ui, DB, UI
-from rpw.ui.forms import CheckBox, Separator, Button, FlexForm
+from rpw.ui.forms import CheckBox, Separator, Button, FlexForm, Label, TextBox
 from rpw.exceptions import RevitExceptions
 from pyrevit.forms import WPFWindow
 from System.Collections.ObjectModel import ObservableCollection
@@ -65,25 +65,43 @@ def selectAlignment():
         except:
             updatedAlignment = False
 
-def CreateModels(self, origin, XVec, ZAxis):
+def createModels(self, origin, XVec, ZAxis, taskName):
     try:
         with db.Transaction("Create Linear Model"):
             Plane = [DB.Plane.CreateByNormalAndOrigin(normal, o) for normal, o in zip(ZAxis, origin)]
             sketchPln = [DB.SketchPlane.Create(revit.doc, p).GetPlaneReference() for p in Plane]
             RefPoints = [DB.PointOnPlane.NewPointOnPlane(revit.doc, sp, o, x.Negate()) for sp, o, x in zip(sketchPln, origin, XVec)]
             symbol = []
+            createdFamily = []
+            selected = ""
             for i in self.SegmentContents:
                 if not i.IsExcluded:
+                    selected = "{},{}".format(selected, i.Index)
                     symbol = self.FamSymbolDic[i.Type]
                     group = i.Group.Split("-")
-                    e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, symbol) 
+                    e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, symbol)
+                    createdFamily.append(e)
                     AdaptivePointIDs = DB.AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(e)
                     for g, id in zip(group, AdaptivePointIDs):
                         AdaptivePoint = revit.doc.GetElement(id)
                         AdaptivePoint.SetPointElementReference(RefPoints[int(g)])
+        index = self.AddedObjectContents.Count
+        self.AddedObjectContents.Add(AddedObjectFormat(index, taskName, selected, len(createdFamily)))
+        parameters = {}
+        for i in createdFamily:
+            temp = getParameters(i)
+            for key, value in temp.items():
+                parameters[key] = value
+        self.PTable[taskName] = ObservableCollection[object]()
+        for key, value in parameters.items():
+            self.PTable[taskName].Add((ParameterTableFormat(index, value["FamilyName"], value["Name"], value["Type"])))
         log(self, "Add Family Success")
     except Exception as e:
         UI.TaskDialog.Show("Error", "{}".format(e))
+
+def getParameters(family):
+    definitions = {i.Id : {"FamilyName" : family.Symbol.Family.Name, "Name": i.Definition.Name, "Type": i.Definition.ParameterType, "Object" : i} for i in family.Parameters if i.IsReadOnly == False}
+    return definitions
 
 def get_element(of_class, of_category):
     collect = db.Collector(of_class=of_class, of_category=of_category)
@@ -93,6 +111,10 @@ def get_element(of_class, of_category):
 def log(self, line):
     self.Log.Text = "{}\n{}".format(self.Log.Text, line)
     self.Log.ScrollToEnd()
+
+def log_p(self, line):
+    self.Log_P.Text = "{}\n{}".format(self.Log_P.Text, line)
+    self.Log_P.ScrollToEnd()
 
 
 ##################################################################################################
@@ -118,6 +140,22 @@ class SegmentTableFormat:
         self.IsAdded = isadded
         self.ID = id
 
+class AddedObjectFormat:
+    def __init__(self, index, name, items, total):
+        self.Index = index
+        self.Name = name
+        self.Items = items
+        self.Total = total
+
+class ParameterTableFormat:
+    def __init__(self, index, familyname, parameter, valuetype, isincluded=False, customvalue=None):
+        self.Index = index
+        self.FamilyName = familyname
+        self.Parameter = parameter
+        self.ValueType = valuetype
+        self.IsIncluded = isincluded
+        self.CustomValue = customvalue
+
 # A simple WPF form used to call the ExternalEvent
 class form_window(WPFWindow):
     def __init__(self, xaml_file_name):
@@ -134,11 +172,17 @@ class form_window(WPFWindow):
 
         self.SegmentContents = ObservableCollection[object]()
         self.SegmentTable.ItemsSource = self.SegmentContents
-        
-        self.Show()
+
+        self.AddedObjectContents = ObservableCollection[object]()
+        self.AddedObjectTable.ItemsSource = self.AddedObjectContents
+
+        self.parameterValues = ["Custom", True, False]
+        self.PTable = {}
 
         self.FamilyType.ItemsSource = FamilySymbolName
         self.Combo_FamilySymbol.ItemsSource = FamilySymbolName
+        self.Combo_CustomValue.ItemsSource = self.parameterValues
+        
         log(self, "Ready")
 
     def NumberValidationTextBox(self, sender, e):
@@ -175,13 +219,23 @@ class form_window(WPFWindow):
                 selectedPointSet = self.PointDic[self.referenceName]
                 self.RefPoint_XVec = []
                 self.origin = []
+                self.distanceToAnother = defaultdict(list)
                 for ptset in selectedPointSet:
-                    self.origin.append(ptset[0].GetCoordinateSystem().Origin)
+                    origin = ptset[0].GetCoordinateSystem().Origin
+                    self.origin.append(origin)
+                    for key, value in self.PointDic.items():
+                        if key == self.referenceName:
+                            continue
+                        else:
+                            for v in value:
+                                self.distanceToAnother["DistanceTo{}".format(key)].append(v[0].GetCoordinateSystem().Origin.DistanceTo(origin))
                     self.RefPoint_XVec.append(ptset[0].GetCoordinateSystem().BasisX.Normalize().Negate())
                     index = self.AlignmentPointContents.Count
                     offset = round(ft2mm(ptset[0].GetCoordinateSystem().Origin.Z) * 0.001, 5)
                     format = AlignmentPointTableFormat(index, ptset[1][1], ptset[1][0], offset, ptset[1][2], ptset[1][-1])
                     self.AlignmentPointContents.Add(format)
+                for key in self.distanceToAnother.keys():
+                    self.parameterValues.append(key)
 ################Get 3D Alignment and attrubutes for modelling
                 collector = DB.FilteredElementCollector(famdoc)
                 lines = collector.OfCategory(DB.BuiltInCategory.OST_Lines).ToElements()
@@ -253,14 +307,39 @@ class form_window(WPFWindow):
     
     def Clk_AddToRevit(self, sender, e):
         try:
-            components = [CheckBox('ReverseProfile', 'Reverse Profile?'),Separator(), Button('Select')]
+            components = [CheckBox('ReverseProfile', 'Reverse Profile?'),
+            Label('Enter Task Name:'), TextBox('TaskName', Text="Batch{}".format(self.AddedObjectContents.Count)),
+            Separator(), Button('Select')]
             form = FlexForm('Modelling Configuration', components)
             form.show()
             if form.values["ReverseProfile"]:
                 self.RefPoint_XVec = [xvec.Negate() for xvec in self.RefPoint_XVec]
-            customizable_event.raise_event(CreateModels, self, self.origin, self.RefPoint_XVec, self.ZAxis)
+            taskName = form.values["TaskName"]
+            for i in self.AddedObjectContents:
+                if i.Items == taskName:
+                    UI.TaskDialog.Show("Error", "{} is already in the table.".format(taskName))
+                    return False
+            customizable_event.raise_event(createModels, self, self.origin, self.RefPoint_XVec, self.ZAxis, taskName)
         except Exception as e:
             log(self, "{}".format(e))
+    
+    def ViewDetailTable(self, sender, e):
+        try:
+            Name = self.AddedObjectTable.SelectedItem.Name
+            self.ParameterTable.ItemsSource = self.PTable[Name]
+        except Exception as e:
+            log_p(self, "{}".format(e))
+    
+    def valueUpdated(self, sender, e):
+        try:
+            Name = self.ParameterTable.SelectedItem.CustomValue
+            if Name == "Custom":
+                newvalue = ui.forms.TextInput("SetCustomValue","","Custom Value")
+                self.parameterValues.append(newvalue)
+                self.Combo_CustomValue.ItemsSource = self.parameterValues
+
+        except Exception as e:
+            log_p(self, "{}".format(e))
 
 form = form_window("ui.xaml")
 if False:

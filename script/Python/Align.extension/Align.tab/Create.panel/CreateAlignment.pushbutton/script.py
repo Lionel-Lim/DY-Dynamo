@@ -233,7 +233,6 @@ def select_SelectFullAlignment(self):
 def updateAlignment(self, alignment, PointContents):
     try:
         lineRefPointName = [i.Name for i in self.GeneralPointContents if i.LineReference]
-        isleft = []
         lineIndex = []
         boundPoints = []
     except Exception as e:
@@ -250,6 +249,7 @@ def updateAlignment(self, alignment, PointContents):
         RefSlope = []
         AlignmentArray = DB.ReferencePointArray()
         refPointArray = []
+        pointdic = defaultdict(list)
         t = DB.Transaction(famdoc)
         t.Start("Create Reference Point")
         #Get Only Main Points
@@ -291,16 +291,20 @@ def updateAlignment(self, alignment, PointContents):
                     refPoint.Parameter[definition_Angle.BuiltInParameter].Set(math.atan(slope/100))
                     pt.IsLoaded = True
                     pt.ID = refPoint.UniqueId
+                else:
+                    if pt.Name in lineRefPointName:
+                        lineIndex.append(index)
+        if "Main" in lineRefPointName:
+            refPointArray[0] = point
         for slope, p in zip(RefSlope, point):
             p.Parameter[definition_Angle.BuiltInParameter].Set(math.atan(slope/100))
             parameters = p.Name.split("/")
             p.Name = "{}/{}/{}/{}/{}".format(parameters[0], parameters[1], slope, parameters[3], parameters[4])
-
         for index, i in enumerate(list(set(lineIndex))):
             boundPoints.append([])
-            for pt, refPt in zip(PointContents[i], refPointArray[i]):
+            for refPt in refPointArray[i]:
                 boundPoints[index].append(refPt)
-        boundPoints = [list(i) for i in zip(*boundPoints)]
+        boundPoints = [list(i) for i in zip(*boundPoints)] #Transpose List
         modelCrvs = []
         RefLineArray = DB.ReferencePointArray()
         SurfaceReferenceArr = DB.ReferenceArray()
@@ -325,7 +329,6 @@ def updateAlignment(self, alignment, PointContents):
         self.GeneralPointTable.ItemsSource = ""
         self.GeneralPointTable.ItemsSource = self.GeneralPointContents
         self.Grd_AddExtraPoint.IsEnabled = False
-
     except Exception as e:
         UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
         t.Commit()
@@ -829,8 +832,8 @@ class form_window(WPFWindow):
         global NormalDirection
         intersect = []
         #Main Alignment Refresh Start
-        if self.stationStart.Text == "":
-            debugHorizontal(self,"Start Station is Required.")
+        if self.stationStart.Text == "" or self.stationEnd.Text == "":
+            debugHorizontal(self,"Start and End Station are Required.")
             return False
         if updatedHorzAlignment == True:
             try:
@@ -859,6 +862,10 @@ class form_window(WPFWindow):
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
                 internal_alignment = factory.PolyCurveEntity(interGeometry)
+                if (internal_alignment.Length * 0.001) + float(self.stationStart.Text) > float(self.stationEnd.Text):
+                    debugHorizontal(self,"Horizontal Alignment is longer than End Station")
+                    debugHorizontal(self, "Measured Length : {}".format((internal_alignment.Length * 0.001) + float(self.stationStart.Text)))
+                    return False
                 if internal_alignment.IsValid:
                     acc = list(factory.Accumulate([crv.Length * 0.001 for crv in internal_alignment.Curves]))
                     acc.insert(0, 0)
@@ -1188,6 +1195,21 @@ class form_window(WPFWindow):
             self.DetailPointTable.ItemsSource = self.DetailPointContents[index]
         except Exception as e:
             debugEdit(self, "{}".format(e))
+    
+    def Btn_LineIntersection_Checked(self, sender, e):
+        self.Btn_SelectIntCurve.IsEnabled = True
+        self.OffsetValue.IsEnabled = False
+    
+    def Btn_OffsetInt_Checked(self, sender, e):
+        self.Btn_SelectIntCurve.IsEnabled = False
+        self.OffsetValue.IsEnabled = True
+    
+    def UpdatePointOffsetValue(self, sender, e):
+        self.RBtn_Offset.IsChecked = True
+        if sender.Text != "":
+            self.Btn_AddTable.IsEnabled = True
+        else:
+            self.Btn_AddTable.IsEnabled = False
 
     def clk_SelectCurveSet(self, sender, e):
         customizable_event.raise_event(select_horizAlignment)
@@ -1197,7 +1219,93 @@ class form_window(WPFWindow):
     
     def Clk_AddExtraToTable(self, sender, e):
         global horizAlignment, updatedHorzAlignment
-        if updatedHorzAlignment:
+###############Point Offset Based Calculation##################
+        if self.RBtn_Offset.IsChecked:
+            if self.OffsetValue.Text == "":
+                debugEdit(self, "Offset value is empty")
+                return False
+            try:
+                offsetValue = float(self.OffsetValue.Text)
+                #Get All Reference Point from Alignment Family
+                create = factory.CreateEntity()
+                famdoc = revit.doc.EditFamily(self.family)
+                collector = DB.FilteredElementCollector(famdoc)
+                refPoints = collector.OfCategory(DB.BuiltInCategory.OST_ReferencePoints).ToElements()
+                point = []
+                #Get Only Main Points
+                for e in refPoints:
+                    if e.Name.split("/")[1] == "Main":
+                        point.append(e)
+                #Convert Revit Main Points to Internal Points
+                XY = []
+                revitXY = []
+                for p in point:
+                    XY.append(factory.PointEntity(
+                        ft2mm(p.GetCoordinateSystem().Origin.X),
+                        ft2mm(p.GetCoordinateSystem().Origin.Y))
+                    )
+                    revitXY.append(DB.XYZ(p.GetCoordinateSystem().Origin.X, p.GetCoordinateSystem().Origin.Y, 0))
+                XVec_revit = [p.GetCoordinateSystem().BasisX for p in point]
+                offsetPoints = []
+                for pt, v in zip(XY, XVec_revit):
+                    vec = factory.VectorEntity(v.X, v.Y).Normalise().Scale(offsetValue)
+                    offsetPoints.append(vec.Add(pt))
+            except Exception as e:
+               debugEdit(self, "Error : {}".format(e))
+            try:
+                ss = self.stationStart.Text
+                se = self.stationEnd.Text
+                pt_name = self.PT_Name.Text
+                if ss == "" or se == "":
+                    debugEdit(self, "Start or End Stations are not defined.")
+                    return False
+                if pt_name == "":
+                    debugEdit(self, "Point Name is not defined.")
+                    updatedHorzAlignment = True
+                    return False
+                stations = [float(value[1]) for value in self.PointDic['Main']]
+                SE_Slope = [i.Slope for i in self.SuperElevationContents]
+                SE_Station = [i.Station for i in self.SuperElevationContents]
+                self.VC = verticalcurve.VerticalCurve(([float(ss), float(se)]))
+                slope = self.VC.SuperElevationAtStation(stations, SE_Slope, SE_Station)
+                d_elev = [(s * offsetValue) * 0.01 * 0.001 for s in slope]
+                elevation = [e[0] + d_e for e, d_e in zip(self.PointDic['Main'], d_elev)]
+                point_set = []
+                #Station / Elevation / Slope / Offset
+                for e, stn, s in zip(elevation, stations, slope):
+                    point_set.append([stn, e, s, round(offsetValue, 2)])
+                index = self.GeneralPointContents.Count
+                number = len(point_set)
+                alloffset = [data[3] for data in point_set]
+                uniqueoffset = set(alloffset)
+                if len(uniqueoffset) == 1:
+                    offset = list(uniqueoffset)[0]
+                else:
+                    offset = "various"
+                self.GeneralPointContents.Add(
+                    GeneralPointTableFormat(
+                        index, pt_name, number, False, offset
+                    )
+                )
+                num = len(self.DetailPointContents)
+                self.DetailPointContents.append([])
+                self.DetailPointContents[num] = ObservableCollection[object]()
+                index_detail = 0
+                for i, pt in zip(point_set, offsetPoints):
+                    self.DetailPointContents[num].Add(
+                        DetailPointTableFormat(
+                            index_detail, i[1], pt_name, i[0], None, False, i[3], i[2], pt
+                        )
+                    )
+                    index_detail = index_detail + 1
+                self.PT_Name.Text = ""
+                self.OffsetValue.Text = ""
+                self.Btn_UpdateFamily.IsEnabled = True            
+            except Exception as e:
+                debugEdit(self, "Calculating Slope is failed.")
+                debugEdit(self, "{}".format(e))
+###############Line Inter Section Based Calculation##################
+        elif updatedHorzAlignment:
             try:
                 geometry = Flatten([elem.GeometryCurve for elem in horizAlignment])
                 geometry = [g for g in geometry]
@@ -1230,10 +1338,6 @@ class form_window(WPFWindow):
                 debugEdit(self, "{}".format(e))
 
             try:
-                if self.stationStart.Text == "":
-                    debugEdit(self, "Start Station is not defined.")
-                    updatedHorzAlignment = True
-                    return False
                 #Get All Reference Point from Alignment Family
                 create = factory.CreateEntity()
                 famdoc = revit.doc.EditFamily(self.family)

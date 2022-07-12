@@ -367,16 +367,17 @@
                             </RadioButton.Content>
                         </RadioButton>
                         <RadioButton Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"
-                                     GroupName="IntMethod" x:Name="RBtn_Line" Margin="10,0,0,0">
+                                     GroupName="IntMethod" x:Name="RBtn_Line" Margin="10,0,0,0" Checked="Btn_LineIntersection_Checked">
                             Line Intersection
                         </RadioButton>
-                        <Button Grid.Row="2" Grid.Column="1" Content="Select Curve Set"
+                        <Button Grid.Row="2" Grid.Column="1" Content="Select Curve Set" x:Name="Btn_SelectIntCurve"
                                 Margin="10,5,10,5" Click="clk_SelectCurveSet"/>
                         <RadioButton Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"
-                                     GroupName="IntMethod" x:Name="RBtn_Offset" Margin="10,0,0,0">
+                                     GroupName="IntMethod" x:Name="RBtn_Offset" Margin="10,0,0,0" Checked="Btn_OffsetInt_Checked">
                             Equal Offset
                         </RadioButton>
-                        <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5" PreviewTextInput="NumberValidationTextBox"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5" x:Name="OffsetValue"
+                                 PreviewTextInput="NumberValidationTextBox" TextChanged="UpdatePointOffsetValue"/>
                         <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table" x:Name="Btn_AddTable"
                                 Margin="10,5,10,5" IsEnabled="False" Click="Clk_AddExtraToTable"/>
                         <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Update to Alignment Model"
