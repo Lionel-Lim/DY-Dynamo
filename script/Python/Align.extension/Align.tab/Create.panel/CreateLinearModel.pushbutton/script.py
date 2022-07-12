@@ -55,6 +55,14 @@ General Functions End
 """
 ##################################################################################################
 ##################################################################################################
+class FamOpt1(DB.IFamilyLoadOptions):
+    def __init__(self):
+        pass
+    def OnFamilyFound(self,familyInUse, overwriteParameterValues):
+        return True
+    def OnSharedFamilyFound(self,familyInUse, source, overwriteParameterValues):
+        return True
+
 def selectAlignment():
     global alingment, updatedAlignment
     with db.Transaction("selection"):
@@ -67,6 +75,12 @@ def selectAlignment():
 
 def createModels(self, origin, XVec, ZAxis, taskName):
     try:
+        allsymbol = []
+        for i in self.SegmentContents:
+            if not i.IsExcluded:
+                allsymbol.append(self.FamSymbolDic[i.Type])
+        for i in list(set(allsymbol)):
+            AddFamilyParameter(i.Family, "AlignID")
         with db.Transaction("Create Linear Model"):
             Plane = [DB.Plane.CreateByNormalAndOrigin(normal, o) for normal, o in zip(ZAxis, origin)]
             sketchPln = [DB.SketchPlane.Create(revit.doc, p).GetPlaneReference() for p in Plane]
@@ -81,23 +95,50 @@ def createModels(self, origin, XVec, ZAxis, taskName):
                     group = i.Group.Split("-")
                     e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, symbol)
                     createdFamily.append(e)
+                    for parameter in e.Parameters:
+                        if parameter.Definition.Name == "AlignID":
+                            parameter.Set("{}/{}".format(i.Group, e.UniqueId))
                     AdaptivePointIDs = DB.AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(e)
                     for g, id in zip(group, AdaptivePointIDs):
                         AdaptivePoint = revit.doc.GetElement(id)
                         AdaptivePoint.SetPointElementReference(RefPoints[int(g)])
         index = self.AddedObjectContents.Count
-        self.AddedObjectContents.Add(AddedObjectFormat(index, taskName, selected, len(createdFamily)))
+        self.AddedObjectContents.Add(AddedObjectFormat(index, taskName, selected[1:], len(createdFamily)))
         parameters = {}
+        familyList = defaultdict(list)
         for i in createdFamily:
             temp = getParameters(i)
             for key, value in temp.items():
+                familyList[key].append(value["FamilyName"])
                 parameters[key] = value
         self.PTable[taskName] = ObservableCollection[object]()
         for key, value in parameters.items():
-            self.PTable[taskName].Add((ParameterTableFormat(index, value["FamilyName"], value["Name"], value["Type"])))
+            self.PTable[taskName].Add((ParameterTableFormat(index, ','.join(map(str, list(set(familyList[key])))), value["Name"], value["Type"], value["Object"])))
         log(self, "Add Family Success")
     except Exception as e:
         UI.TaskDialog.Show("Error", "{}".format(e))
+
+def AddFamilyParameter(family, name):
+    try:
+        famdoc = revit.doc.EditFamily(family)
+        t = DB.Transaction(famdoc)
+        for i in famdoc.FamilyManager.Parameters:
+            if name == i.Definition.Name:
+                return False
+        t.Start("Add Parameter for Internal Use")
+        famdoc.FamilyManager.AddParameter(name, DB.BuiltInParameterGroup.PG_TEXT, DB.ParameterType.Text, True)
+        t.Commit()
+        famdoc.LoadFamily(revit.doc, FamOpt1())
+        famdoc.Close(True)
+    except Exception as e:
+        # if t.GetStatus() == DB.TransactionStatus.Started:
+        #     t.Commit()
+        UI.TaskDialog.Show("Error", "{}".format(e))
+
+def SetParameter():
+    #Search based on element id, compare with first digit of id with AddedObjectTable Items, and Set()
+    True
+
 
 def getParameters(family):
     definitions = {i.Id : {"FamilyName" : family.Symbol.Family.Name, "Name": i.Definition.Name, "Type": i.Definition.ParameterType, "Object" : i} for i in family.Parameters if i.IsReadOnly == False}
@@ -148,11 +189,12 @@ class AddedObjectFormat:
         self.Total = total
 
 class ParameterTableFormat:
-    def __init__(self, index, familyname, parameter, valuetype, isincluded=False, customvalue=None):
+    def __init__(self, index, familyname, parameter, valuetype, object, isincluded=False, customvalue=None):
         self.Index = index
         self.FamilyName = familyname
         self.Parameter = parameter
         self.ValueType = valuetype
+        self.Object = object
         self.IsIncluded = isincluded
         self.CustomValue = customvalue
 
@@ -315,6 +357,7 @@ class form_window(WPFWindow):
             if form.values["ReverseProfile"]:
                 self.RefPoint_XVec = [xvec.Negate() for xvec in self.RefPoint_XVec]
             taskName = form.values["TaskName"]
+            self.parameterValues.append(taskName)
             for i in self.AddedObjectContents:
                 if i.Items == taskName:
                     UI.TaskDialog.Show("Error", "{} is already in the table.".format(taskName))
@@ -338,6 +381,12 @@ class form_window(WPFWindow):
                 self.parameterValues.append(newvalue)
                 self.Combo_CustomValue.ItemsSource = self.parameterValues
 
+        except Exception as e:
+            log_p(self, "{}".format(e))
+    
+    def Clk_SetParameter(self, sender, e):
+        try:
+            True
         except Exception as e:
             log_p(self, "{}".format(e))
 
