@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Linear Modelling" SizeToContent="Height" Width="800" ShowInTaskbar="False" Topmost="True"
+        Title="Linear Modelling" SizeToContent="Height" Width="800" ShowInTaskbar="True" Topmost="True"
         WindowStartupLocation="CenterOwner" HorizontalContentAlignment="Center">
     <TabControl Height="600">
         <TabItem>

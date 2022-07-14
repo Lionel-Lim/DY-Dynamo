@@ -1,3 +1,5 @@
+from math import atan
+import math
 import re
 from event import CustomizableEvent
 import rpw
@@ -65,7 +67,7 @@ class FamOpt1(DB.IFamilyLoadOptions):
 
 def selectAlignment():
     global alingment, updatedAlignment
-    with db.Transaction("selection"):
+    with db.Transaction("Align - selection"):
         ref = ui.Pick.pick_element("Select Alignment Model", False)
         try:
             alingment = revit.doc.GetElement(ref.ElementId)
@@ -81,7 +83,7 @@ def createModels(self, origin, XVec, ZAxis, taskName):
                 allsymbol.append(self.FamSymbolDic[i.Type])
         for i in list(set(allsymbol)):
             AddFamilyParameter(i.Family, "AlignID")
-        with db.Transaction("Create Linear Model"):
+        with db.Transaction("Align - Create Linear Model"):
             Plane = [DB.Plane.CreateByNormalAndOrigin(normal, o) for normal, o in zip(ZAxis, origin)]
             sketchPln = [DB.SketchPlane.Create(revit.doc, p).GetPlaneReference() for p in Plane]
             RefPoints = [DB.PointOnPlane.NewPointOnPlane(revit.doc, sp, o, x.Negate()) for sp, o, x in zip(sketchPln, origin, XVec)]
@@ -94,10 +96,13 @@ def createModels(self, origin, XVec, ZAxis, taskName):
                     symbol = self.FamSymbolDic[i.Type]
                     group = i.Group.Split("-")
                     e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, symbol)
+                    id = e.UniqueId
+                    i.ID = id
+                    i.IsAdded = True
                     createdFamily.append(e)
                     for parameter in e.Parameters:
                         if parameter.Definition.Name == "AlignID":
-                            parameter.Set("{}/{}".format(i.Group, e.UniqueId))
+                            parameter.Set("{}/{}".format(i.Group, id))
                     AdaptivePointIDs = DB.AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(e)
                     for g, id in zip(group, AdaptivePointIDs):
                         AdaptivePoint = revit.doc.GetElement(id)
@@ -114,6 +119,8 @@ def createModels(self, origin, XVec, ZAxis, taskName):
         self.PTable[taskName] = ObservableCollection[object]()
         for key, value in parameters.items():
             self.PTable[taskName].Add((ParameterTableFormat(index, ','.join(map(str, list(set(familyList[key])))), value["Name"], value["Type"], value["Object"])))
+        self.SegmentTable.ItemsSource = None
+        self.SegmentTable.ItemsSource = self.SegmentContents
         log(self, "Add Family Success")
     except Exception as e:
         UI.TaskDialog.Show("Error", "{}".format(e))
@@ -135,19 +142,44 @@ def AddFamilyParameter(family, name):
         #     t.Commit()
         UI.TaskDialog.Show("Error", "{}".format(e))
 
-def SetParameter():
-    #Search based on element id, compare with first digit of id with AddedObjectTable Items, and Set()
-    True
-
+def SetParameter(self, parameterSet):
+    try:
+        with db.Transaction("Align - Set Parameter"):
+            elementIds = {}
+            ElemInActiveView = DB.FilteredElementCollector(revit.doc, revit.doc.ActiveView.Id).ToElements()
+            for element in ElemInActiveView:
+                parameter = element.GetParameters("AlignID")
+                if parameter:
+                    elementIds[parameter[0].AsString().split("/")[-1]] = element
+            for index in self.AddedObjectTable.SelectedItem.Items.split(","):
+                element = elementIds[self.SegmentContents.Item[int(index)].ID]
+                UI.TaskDialog.Show("Element", "{}".format(element))
+                for p in parameterSet:
+                    UI.TaskDialog.Show("Element", "{}".format(p))
+                    parameter = element.GetParameters(p[0])
+                    UI.TaskDialog.Show("Element", "{}".format(parameter))
+                    if parameter:
+                        try:
+                            value = self.parameterSet[p[2]][int(index)]
+                        except:
+                            value = p[2]
+                        # value = convertByType(p[1], value)
+                        parameter[0].Set(float(value))
+    except Exception as e:
+        UI.TaskDialog.Show("Error", "{}".format(e))
 
 def getParameters(family):
-    definitions = {i.Id : {"FamilyName" : family.Symbol.Family.Name, "Name": i.Definition.Name, "Type": i.Definition.ParameterType, "Object" : i} for i in family.Parameters if i.IsReadOnly == False}
+    definitions = {i.Id : {"FamilyName" : family.Symbol.Family.Name, "Name": i.Definition.Name, "Type": i.Definition.ParameterType.ToString(), "Object" : i} for i in family.Parameters if i.IsReadOnly == False}
     return definitions
 
 def get_element(of_class, of_category):
     collect = db.Collector(of_class=of_class, of_category=of_category)
     collect_list = collect.get_elements()
     return collect_list
+
+# def convertByType(RevitType, Value):
+#     string = []
+#     if RevitType in 
 
 def log(self, line):
     self.Log.Text = "{}\n{}".format(self.Log.Text, line)
@@ -261,7 +293,7 @@ class form_window(WPFWindow):
                 selectedPointSet = self.PointDic[self.referenceName]
                 self.RefPoint_XVec = []
                 self.origin = []
-                self.distanceToAnother = defaultdict(list)
+                self.parameterSet = defaultdict(list)
                 for ptset in selectedPointSet:
                     origin = ptset[0].GetCoordinateSystem().Origin
                     self.origin.append(origin)
@@ -270,14 +302,21 @@ class form_window(WPFWindow):
                             continue
                         else:
                             for v in value:
-                                self.distanceToAnother["DistanceTo{}".format(key)].append(v[0].GetCoordinateSystem().Origin.DistanceTo(origin))
+                                self.parameterSet["DistanceTo{}".format(key)].append(v[0].GetCoordinateSystem().Origin.DistanceTo(origin))
                     self.RefPoint_XVec.append(ptset[0].GetCoordinateSystem().BasisX.Normalize().Negate())
                     index = self.AlignmentPointContents.Count
                     offset = round(ft2mm(ptset[0].GetCoordinateSystem().Origin.Z) * 0.001, 5)
                     format = AlignmentPointTableFormat(index, ptset[1][1], ptset[1][0], offset, ptset[1][2], ptset[1][-1])
                     self.AlignmentPointContents.Add(format)
-                for key in self.distanceToAnother.keys():
+                #Parameters
+                for i in self.AlignmentPointContents:
+                    self.parameterSet["Station"].append(i.Station)
+                    self.parameterSet["Elevation"].append(i.Elevation)
+                    self.parameterSet["Slope(%)"].append(i.Slope)
+                    self.parameterSet["Slope(deg)"].append(math.degrees(math.atan(float(i.Slope)/100)))
+                for key in self.parameterSet.keys():
                     self.parameterValues.append(key)
+                log(self, "Error: {}".format(self.parameterSet["Slope(deg)"]))
 ################Get 3D Alignment and attrubutes for modelling
                 collector = DB.FilteredElementCollector(famdoc)
                 lines = collector.OfCategory(DB.BuiltInCategory.OST_Lines).ToElements()
@@ -288,12 +327,10 @@ class form_window(WPFWindow):
                 transform_Alignment = []
                 for p in parameters:
                     transform_Alignment.append(alignment.ComputeDerivatives(p, False))
-                Tangent = []
                 self.ZAxis = []
                 for t, xvec in zip(transform_Alignment, self.RefPoint_XVec):
                     tangent_temp = t.BasisX.Normalize()
                     self.ZAxis.append(tangent_temp.CrossProduct(xvec.Normalize()))
-                    Tangent.append(tangent_temp)
 ################Close Family Document
                 famdoc.Close(False)
                 log(self, "Alignment Loaded")
@@ -386,7 +423,12 @@ class form_window(WPFWindow):
     
     def Clk_SetParameter(self, sender, e):
         try:
-            True
+            currentParamTable = self.ParameterTable.ItemsSource
+            appliedParameter = []
+            for i in currentParamTable:
+                if i.IsIncluded:
+                    appliedParameter.append([i.Parameter, i.ValueType, i.CustomValue])
+            customizable_event.raise_event(SetParameter, self, appliedParameter)
         except Exception as e:
             log_p(self, "{}".format(e))
 
