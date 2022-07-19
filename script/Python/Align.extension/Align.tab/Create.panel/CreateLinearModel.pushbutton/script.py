@@ -1,3 +1,4 @@
+import csv
 from math import atan
 import math
 import re
@@ -155,11 +156,14 @@ def SetParameter(self, parameterSet):
                 element = elementIds[self.SegmentContents.Item[int(index)].ID]
                 for p in parameterSet:
                     parameter = element.GetParameters(p[0])
-                    UI.TaskDialog.Show("Error", "{}, {}, {}".format(parameter, p[0], p[1]))
                     if parameter:
                         try:
-                            value = self.parameterSet[p[2]][int(index)]
-                        except:
+                            if p[3]:
+                                value = self.parameterSet[p[2]][int(index) + 1]
+                            else:
+                                value = self.parameterSet[p[2]][int(index)]
+                        except Exception as e:
+                            UI.TaskDialog.Show("Error", "{}".format(e))
                             value = p[2]
                         value = convertByType(p[1], value)
                         parameter[0].Set(float(value))
@@ -226,7 +230,7 @@ class AddedObjectFormat:
         self.Total = total
 
 class ParameterTableFormat:
-    def __init__(self, index, familyname, parameter, valuetype, object, isincluded=False, customvalue=None):
+    def __init__(self, index, familyname, parameter, valuetype, object, isincluded=False, customvalue=None, IsStaggered=False):
         self.Index = index
         self.FamilyName = familyname
         self.Parameter = parameter
@@ -234,6 +238,7 @@ class ParameterTableFormat:
         self.Object = object
         self.IsIncluded = isincluded
         self.CustomValue = customvalue
+        self.IsStaggered = IsStaggered
 
 # A simple WPF form used to call the ExternalEvent
 class form_window(WPFWindow):
@@ -431,10 +436,24 @@ class form_window(WPFWindow):
             appliedParameter = []
             for i in currentParamTable:
                 if i.IsIncluded:
-                    appliedParameter.append([i.Parameter, i.ValueType, i.CustomValue])
+                    appliedParameter.append([i.Parameter, i.ValueType, i.CustomValue, i.IsStaggered])
             customizable_event.raise_event(SetParameter, self, appliedParameter)
         except Exception as e:
             log_p(self, "{}".format(e))
+    
+    def Clk_ExportParameter(self, sender, e):
+        try:
+            # currentParamTable = self.ParameterTable.ItemsSource
+            # for key, value in self.parameterSet.items():
+            #     log_p(self, "{}, {}".format(key, value))
+            with open("Export.csv", "w") as f:
+                writer = csv.writer(f)
+                for key, value in self.parameterSet.items():
+                    value.insert(0, key)
+                    writer.writerow(value)
+        except Exception as e:
+            log_p(self, "{}".format(e))
+
 
 form = form_window("ui.xaml")
 if False:
