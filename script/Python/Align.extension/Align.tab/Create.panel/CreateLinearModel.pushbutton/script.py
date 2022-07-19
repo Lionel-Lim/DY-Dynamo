@@ -153,17 +153,15 @@ def SetParameter(self, parameterSet):
                     elementIds[parameter[0].AsString().split("/")[-1]] = element
             for index in self.AddedObjectTable.SelectedItem.Items.split(","):
                 element = elementIds[self.SegmentContents.Item[int(index)].ID]
-                UI.TaskDialog.Show("Element", "{}".format(element))
                 for p in parameterSet:
-                    UI.TaskDialog.Show("Element", "{}".format(p))
                     parameter = element.GetParameters(p[0])
-                    UI.TaskDialog.Show("Element", "{}".format(parameter))
+                    UI.TaskDialog.Show("Error", "{}, {}, {}".format(parameter, p[0], p[1]))
                     if parameter:
                         try:
                             value = self.parameterSet[p[2]][int(index)]
                         except:
                             value = p[2]
-                        # value = convertByType(p[1], value)
+                        value = convertByType(p[1], value)
                         parameter[0].Set(float(value))
     except Exception as e:
         UI.TaskDialog.Show("Error", "{}".format(e))
@@ -177,9 +175,16 @@ def get_element(of_class, of_category):
     collect_list = collect.get_elements()
     return collect_list
 
-# def convertByType(RevitType, Value):
-#     string = []
-#     if RevitType in 
+def convertByType(RevitType, Value):
+    string = ["Text"]
+    number = ["Length"]
+    if RevitType in string:
+        return "{}".format(Value)
+    elif RevitType in number:
+        try:
+            return float(Value)
+        except:
+            return 0
 
 def log(self, line):
     self.Log.Text = "{}\n{}".format(self.Log.Text, line)
@@ -294,15 +299,14 @@ class form_window(WPFWindow):
                 self.RefPoint_XVec = []
                 self.origin = []
                 self.parameterSet = defaultdict(list)
-                for ptset in selectedPointSet:
+                for i, ptset in enumerate(selectedPointSet):
                     origin = ptset[0].GetCoordinateSystem().Origin
                     self.origin.append(origin)
                     for key, value in self.PointDic.items():
                         if key == self.referenceName:
-                            continue
+                            True
                         else:
-                            for v in value:
-                                self.parameterSet["DistanceTo{}".format(key)].append(v[0].GetCoordinateSystem().Origin.DistanceTo(origin))
+                            self.parameterSet["DistanceTo{}".format(key)].append(self.PointDic[key][i][0].GetCoordinateSystem().Origin.DistanceTo(origin))
                     self.RefPoint_XVec.append(ptset[0].GetCoordinateSystem().BasisX.Normalize().Negate())
                     index = self.AlignmentPointContents.Count
                     offset = round(ft2mm(ptset[0].GetCoordinateSystem().Origin.Z) * 0.001, 5)
