@@ -117,7 +117,7 @@
                 </DataGrid>
                 <DataGrid Name="ParameterTable" AutoGenerateColumns="False" Margin="10"
                           ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           ColumnWidth="*" Grid.Row="1" Grid.Column="0"
                           CurrentCellChanged="valueUpdated">
@@ -128,6 +128,7 @@
                         <DataGridTextColumn Binding="{Binding ValueType}" Header="Value Type" IsReadOnly="True"/>
                         <DataGridCheckBoxColumn Header="Inclue" Binding="{Binding IsIncluded}" IsReadOnly="False"/>
                         <DataGridComboBoxColumn TextBinding="{Binding CustomValue}" x:Name="Combo_CustomValue" Header="CustomValue" IsReadOnly="False"/>
+                        <DataGridCheckBoxColumn Header="IsNagative" Binding="{Binding IsNagative}" IsReadOnly="False"/>
                         <DataGridCheckBoxColumn Header="IsStaggered" Binding="{Binding IsStaggered}" IsReadOnly="False"/>
                     </DataGrid.Columns>
                 </DataGrid>

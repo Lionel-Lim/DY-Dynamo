@@ -91,13 +91,17 @@ def createModels(self, origin, XVec, ZAxis, taskName):
             symbol = []
             createdFamily = []
             selected = ""
+            insertedID = []
             for i in self.SegmentContents:
                 if not i.IsExcluded:
                     selected = "{},{}".format(selected, i.Index)
                     symbol = self.FamSymbolDic[i.Type]
                     group = i.Group.Split("-")
+                    if self.isReversed:
+                        group = list(reversed(group))
                     e = DB.AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(revit.doc, symbol)
                     id = e.UniqueId
+                    insertedID.append(id)
                     i.ID = id
                     i.IsAdded = True
                     createdFamily.append(e)
@@ -109,7 +113,7 @@ def createModels(self, origin, XVec, ZAxis, taskName):
                         AdaptivePoint = revit.doc.GetElement(id)
                         AdaptivePoint.SetPointElementReference(RefPoints[int(g)])
         index = self.AddedObjectContents.Count
-        self.AddedObjectContents.Add(AddedObjectFormat(index, taskName, selected[1:], len(createdFamily)))
+        self.AddedObjectContents.Add(AddedObjectFormat(index, taskName, selected[1:], len(createdFamily), insertedID))
         parameters = {}
         familyList = defaultdict(list)
         for i in createdFamily:
@@ -152,8 +156,8 @@ def SetParameter(self, parameterSet):
                 parameter = element.GetParameters("AlignID")
                 if parameter:
                     elementIds[parameter[0].AsString().split("/")[-1]] = element
-            for index in self.AddedObjectTable.SelectedItem.Items.split(","):
-                element = elementIds[self.SegmentContents.Item[int(index)].ID]
+            for index, id in zip(self.AddedObjectTable.SelectedItem.Items.split(","), self.AddedObjectTable.SelectedItem.ID):
+                element = elementIds[id]
                 for p in parameterSet:
                     parameter = element.GetParameters(p[0])
                     if parameter:
@@ -163,9 +167,9 @@ def SetParameter(self, parameterSet):
                             else:
                                 value = self.parameterSet[p[2]][int(index)]
                         except Exception as e:
-                            UI.TaskDialog.Show("Error", "{}".format(e))
+                            # UI.TaskDialog.Show("P[3] Value", "{}".format(e))
                             value = p[2]
-                        value = convertByType(p[1], value)
+                        value = convertByType(p[1], value, p[4])
                         parameter[0].Set(float(value))
     except Exception as e:
         UI.TaskDialog.Show("Error", "{}".format(e))
@@ -179,14 +183,20 @@ def get_element(of_class, of_category):
     collect_list = collect.get_elements()
     return collect_list
 
-def convertByType(RevitType, Value):
+def convertByType(RevitType, Value, IsNegative):
     string = ["Text"]
-    number = ["Length"]
+    number = ["Length", "Angle"]
     if RevitType in string:
-        return "{}".format(Value)
+        if IsNegative:
+            return "-{}".format(Value)
+        else:
+            return "{}".format(Value)
     elif RevitType in number:
         try:
-            return float(Value)
+            if IsNegative:
+                return -float(Value)
+            else:
+                return float(Value)
         except:
             return 0
 
@@ -223,14 +233,15 @@ class SegmentTableFormat:
         self.ID = id
 
 class AddedObjectFormat:
-    def __init__(self, index, name, items, total):
+    def __init__(self, index, name, items, total, id):
         self.Index = index
         self.Name = name
         self.Items = items
         self.Total = total
+        self.ID = id
 
 class ParameterTableFormat:
-    def __init__(self, index, familyname, parameter, valuetype, object, isincluded=False, customvalue=None, IsStaggered=False):
+    def __init__(self, index, familyname, parameter, valuetype, object, isincluded=False, customvalue=None, IsStaggered=False, IsNagative=False):
         self.Index = index
         self.FamilyName = familyname
         self.Parameter = parameter
@@ -239,6 +250,7 @@ class ParameterTableFormat:
         self.IsIncluded = isincluded
         self.CustomValue = customvalue
         self.IsStaggered = IsStaggered
+        self.IsNagative = IsNagative
 
 # A simple WPF form used to call the ExternalEvent
 class form_window(WPFWindow):
@@ -322,6 +334,7 @@ class form_window(WPFWindow):
                     self.parameterSet["Station"].append(i.Station)
                     self.parameterSet["Elevation"].append(i.Elevation)
                     self.parameterSet["Slope(%)"].append(i.Slope)
+                    self.parameterSet["Slope(rad)"].append(math.atan(float(i.Slope)/100))
                     self.parameterSet["Slope(deg)"].append(math.degrees(math.atan(float(i.Slope)/100)))
                 for key in self.parameterSet.keys():
                     self.parameterValues.append(key)
@@ -402,6 +415,9 @@ class form_window(WPFWindow):
             form.show()
             if form.values["ReverseProfile"]:
                 self.RefPoint_XVec = [xvec.Negate() for xvec in self.RefPoint_XVec]
+                self.isReversed = True
+            else:
+                self.isReversed = False
             taskName = form.values["TaskName"]
             self.parameterValues.append(taskName)
             for i in self.AddedObjectContents:
@@ -416,6 +432,8 @@ class form_window(WPFWindow):
         try:
             Name = self.AddedObjectTable.SelectedItem.Name
             self.ParameterTable.ItemsSource = self.PTable[Name]
+            self.ParameterTable.ScrollViewer.HorizontalScrollBarVisibility="Visible"
+            self.ParameterTable.ScrollViewer.CanContentScroll="True"
         except Exception as e:
             log_p(self, "{}".format(e))
     
@@ -436,7 +454,7 @@ class form_window(WPFWindow):
             appliedParameter = []
             for i in currentParamTable:
                 if i.IsIncluded:
-                    appliedParameter.append([i.Parameter, i.ValueType, i.CustomValue, i.IsStaggered])
+                    appliedParameter.append([i.Parameter, i.ValueType, i.CustomValue, i.IsStaggered, i.IsNagative])
             customizable_event.raise_event(SetParameter, self, appliedParameter)
         except Exception as e:
             log_p(self, "{}".format(e))
@@ -449,8 +467,10 @@ class form_window(WPFWindow):
             with open("Export.csv", "w") as f:
                 writer = csv.writer(f)
                 for key, value in self.parameterSet.items():
-                    value.insert(0, key)
-                    writer.writerow(value)
+                    temp = list(value)
+                    temp.insert(0, key)
+                    writer.writerow(temp)
+            log_p(self, "Exported")
         except Exception as e:
             log_p(self, "{}".format(e))
 
