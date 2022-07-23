@@ -426,15 +426,43 @@ class PolyCurveEntity:
         self.StartPoint = curveset[0].StartPoint
         self.EndPoint = curveset[-1].EndPoint
     
-    def IsContinuous(self, curveset, tolerance=0.001):
+    def IsContinuous(self, curveset, tolerance=0.01):
         dist = []
-        crvs = list(curveset)
-        for index in range(len(crvs)):
-            if index == len(crvs)-1:
-                return True
-            dist.append(crvs[index].EndPoint.DistanceTo(crvs[index+1].StartPoint))
-            if dist[index] >= tolerance:
-                return False
+        noReverse = False
+        # crvs = list(curveset)
+        for index in range(len(curveset)):
+            if index == len(curveset)-1:
+                return [True, dist]
+            normalDist = curveset[index].EndPoint.DistanceTo(curveset[index+1].StartPoint)
+            if normalDist <= tolerance:
+                noReverse = True
+                dist.append(normalDist)
+            elif not noReverse:
+                reverseStartDist = curveset[index].StartPoint.DistanceTo(curveset[index+1].StartPoint)
+                reverseBothDist = curveset[index].StartPoint.DistanceTo(curveset[index+1].EndPoint)
+                if reverseStartDist <= tolerance:
+                    noReverse = False
+                    dist.append(reverseStartDist)
+                    curveset[index] = curveset[index].Reversed()
+                elif reverseBothDist <= tolerance:
+                    noReverse = False
+                    dist.append(reverseBothDist)
+                    curveset[index] = curveset[index].Reversed()
+                else:
+                    dist.append(reverseStartDist)
+                    dist.append(reverseBothDist)
+                    return [False, dist]
+            else:
+                reverseEndDist = curveset[index].EndPoint.DistanceTo(curveset[index+1].EndPoint)
+                if reverseEndDist <= tolerance:
+                    noReverse = False
+                    dist.append(reverseEndDist)
+                else:
+                    dist.append(reverseEndDist)
+                    return [False, dist]
+            # dist.append(crvs[index].EndPoint.DistanceTo(crvs[index+1].StartPoint))
+            # if dist[index] >= tolerance:
+                # return False
         
     def PointAtSegmentLength(self, segmentlength):
         acc = list(Accumulate([crv.Length for crv in self.Curves]))

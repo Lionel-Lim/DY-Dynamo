@@ -866,7 +866,7 @@ class form_window(WPFWindow):
                     debugHorizontal(self,"Horizontal Alignment is longer than End Station")
                     debugHorizontal(self, "Measured Length : {}".format((internal_alignment.Length * 0.001) + float(self.stationStart.Text)))
                     return False
-                if internal_alignment.IsValid:
+                if internal_alignment.IsValid[0]:
                     acc = list(factory.Accumulate([crv.Length * 0.001 for crv in internal_alignment.Curves]))
                     acc.insert(0, 0)
                     start = float(self.stationStart.Text)
@@ -874,6 +874,7 @@ class form_window(WPFWindow):
                     debugHorizontal(self,"Alignment Validataion :{}".format(internal_alignment.IsValid))
                 else:
                     debugHorizontal(self,"Imported Curves are not continuous!")
+                    debugHorizontal(self,"Alignment Validataion :{}".format(internal_alignment.IsValid))
                     self.HZContents.Clear()
                     self.Refresh.IsEnabled = False
                     return False
@@ -1328,7 +1329,7 @@ class form_window(WPFWindow):
                         ptEntity = [factory.PointEntity(ft2mm(p.X), ft2mm(p.Y)) for p in tes]
                         interGeometry.append(create.ArcByThreePoints(ptEntity[0], ptEntity[1], ptEntity[2]))
                 internal_alignment = factory.PolyCurveEntity(interGeometry)
-                if internal_alignment.IsValid:
+                if internal_alignment.IsValid[0]:
                     debugEdit(self,"Additional Curve Validataion :{}".format(internal_alignment.IsValid))
                 else:
                     debugEdit(self,"Imported Curves are not continuous!")
