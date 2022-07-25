@@ -171,6 +171,8 @@ class VerticalCurve:
         slopes = []
         superElevationGroup = self.RangeTypeAtStation(stations, stationatmark, False)
         for station, seg in zip(stations, superElevationGroup):
+            if isinstance(seg, list):
+                return seg
             slopes.append(
                 slopeatmark[seg]
                 + (

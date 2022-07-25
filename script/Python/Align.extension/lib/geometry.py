@@ -456,6 +456,7 @@ class PolyCurveEntity:
                 reverseEndDist = curveset[index].EndPoint.DistanceTo(curveset[index+1].EndPoint)
                 if reverseEndDist <= tolerance:
                     noReverse = False
+                    curveset[index+1] = curveset[index+1].Reversed()
                     dist.append(reverseEndDist)
                 else:
                     dist.append(reverseEndDist)

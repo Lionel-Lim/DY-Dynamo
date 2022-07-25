@@ -3,6 +3,7 @@ import math
 import operator
 import re
 import clr
+import sys
 
 clr.AddReference("PresentationCore")
 
@@ -11,6 +12,7 @@ from System.Collections.ObjectModel import ObservableCollection
 
 import rpw
 from rpw import revit, db, ui, DB, UI
+from rpw.ui.forms import select_folder
 
 from pyrevit.forms import WPFWindow
 from collections import Iterable, OrderedDict, defaultdict
@@ -164,9 +166,14 @@ def createReferencePoint(self, famdoc, points, dir):
             UI.TaskDialog.Show("Error", "Create Reference Point Error : {}".format(e))
             t.Commit()
         try:
-            documentLocation = (revit.doc.PathName).Split('\\')
-            documentLocation = '{}{}'.format('\\'.join(map(str, documentLocation[0:-1])),'\\')
-            saveAsPath = "{}{}.rfa".format(documentLocation, "Alignment")
+            folderpath = select_folder()
+            # documentLocation = (folderpath).Split('\\')
+            # documentLocation = '{}{}'.format('\\'.join(map(str, documentLocation[0:-1])),'\\')
+            filename = self.alignmentname
+            if filename:
+                filename = "Alignment"
+            saveAsPath = "{}\\{}.rfa".format(folderpath, filename)
+            UI.TaskDialog.Show("Alignment Family Location", "The Family will be saved at : {}".format(saveAsPath))
             SaveAsOpt = DB.SaveAsOptions()
             SaveAsOpt.OverwriteExistingFile = True
             famdoc.SaveAs(saveAsPath, SaveAsOpt)
@@ -675,15 +682,18 @@ class form_window(WPFWindow):
                         )
                     )
                 #Superelevation Table Input
+                self.SuperElevationContents.Clear()
                 for index, (station, slope) in enumerate(zip(seStation, sePercentage)):
+                    if station == None:
+                        break
                     self.SuperElevationContents.Add(
                         SuperElevationTableFormat(
                             index, station, slope
                         )
                     )
-
-                self.stationStart.Text = str(seStation[0])
-                self.stationEnd.Text = str(seStation[-1])
+                debug(self, "{}".format(self.SuperElevationContents.Count))
+                self.stationStart.Text = str(self.SuperElevationContents.Item[0].Station)
+                self.stationEnd.Text = str(self.SuperElevationContents.Item[self.SuperElevationContents.Count - 1].Station)
                 debug(self, "Import Success")
             else:
                 debug(self, "Not supported type")
@@ -1466,8 +1476,11 @@ class form_window(WPFWindow):
                 self.PT_Name.Text = ""
                 self.Btn_UpdateFamily.IsEnabled = True            
             except Exception as e:
+                trace_back = sys.exc_info()[2]
+                line = trace_back.tb_lineno
                 debugEdit(self, "Calculating Slope is failed.")
                 debugEdit(self, "{}".format(e))
+                debugEdit(self, "{}".format(line))
                 famdoc.Close(False)
             famdoc.Close(False)
 

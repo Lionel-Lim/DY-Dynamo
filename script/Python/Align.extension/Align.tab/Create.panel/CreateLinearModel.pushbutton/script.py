@@ -170,7 +170,7 @@ def SetParameter(self, parameterSet):
                             # UI.TaskDialog.Show("P[3] Value", "{}".format(e))
                             value = p[2]
                         value = convertByType(p[1], value, p[4])
-                        parameter[0].Set(float(value))
+                        parameter[0].Set(value)
     except Exception as e:
         UI.TaskDialog.Show("Error", "{}".format(e))
 
