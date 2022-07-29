@@ -346,41 +346,46 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Label Grid.Row="0" Margin="10,5,10,5"
-                            Content="Point Set Name"/>
+                        <Label Grid.Row="0" Margin="10,5,0,5"
+                            Content="Point Set Name" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                         <TextBox Grid.Row="0" Grid.Column="1" x:Name="PT_Name" Margin="10,5,10,5"/>
-                        <RadioButton Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"
-                                     x:Name="RBtn_AlignmentNormal" GroupName="PjtMethod" Margin="10,0,0,0" IsChecked="True">
-                            <RadioButton.Content>
-                                <TextBlock Text="Alignment Normal Direction" TextWrapping="Wrap"/>
-                            </RadioButton.Content>
-                        </RadioButton>
-                        <RadioButton Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"
-                                     x:Name="RBtn_PointNormal" GroupName="PjtMethod" Margin="10,0,0,0" IsEnabled="False">
-                            <RadioButton.Content>
-                                <TextBlock Text="Point Rotation Direction" TextWrapping="Wrap"/>
-                            </RadioButton.Content>
-                        </RadioButton>
+                        <Label Grid.Row="1" Grid.Column="0" Content="Measure Offset from" Margin="10,5,0,5" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="Combo_pointList" VerticalAlignment="Center"
+                                   Grid.Column="1" Grid.ColumnSpan="4" Grid.Row="1"
+                                   DropDownOpened="Event_PointListOpened"  Margin="10,5,10,5"/>
                         <RadioButton Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"
+                                     x:Name="RBtn_WithSlope" GroupName="PjtMethod" Margin="10,0,0,0" IsChecked="True">
+                            <RadioButton.Content>
+                                <TextBlock Text="with Slope" TextWrapping="Wrap"/>
+                            </RadioButton.Content>
+                        </RadioButton>
+                        <RadioButton Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"
+                                     x:Name="RBtn_WithoutSlope" GroupName="PjtMethod" Margin="10,0,0,0" IsEnabled="True">
+                            <RadioButton.Content>
+                                <TextBlock Text="without Slope" TextWrapping="Wrap"/>
+                            </RadioButton.Content>
+                        </RadioButton>
+                        <RadioButton Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"
                                      GroupName="IntMethod" x:Name="RBtn_Line" Margin="10,0,0,0" Checked="Btn_LineIntersection_Checked">
                             Line Intersection
                         </RadioButton>
-                        <Button Grid.Row="2" Grid.Column="1" Content="Select Curve Set" x:Name="Btn_SelectIntCurve"
+                        <Button Grid.Row="3" Grid.Column="1" Content="Select Curve Set" x:Name="Btn_SelectIntCurve"
                                 Margin="10,5,10,5" Click="clk_SelectCurveSet"/>
-                        <RadioButton Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"
+                        <RadioButton Grid.Row="4" Grid.Column="0" VerticalAlignment="Center"
                                      GroupName="IntMethod" x:Name="RBtn_Offset" Margin="10,0,0,0" Checked="Btn_OffsetInt_Checked">
                             Equal Offset
                         </RadioButton>
-                        <TextBox Grid.Row="3" Grid.Column="1" Margin="10,5,10,5" x:Name="OffsetValue"
+                        <TextBox Grid.Row="4" Grid.Column="1" Margin="10,5,10,5" x:Name="OffsetValue"
                                  PreviewTextInput="NumberValidationTextBox" TextChanged="UpdatePointOffsetValue"/>
-                        <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Add to Table" x:Name="Btn_AddTable"
+                        <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Add to Table" x:Name="Btn_AddTable"
                                 Margin="10,5,10,5" IsEnabled="False" Click="Clk_AddExtraToTable"/>
-                        <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Update to Alignment Model"
+                        <Button Grid.Row="6" Grid.ColumnSpan="2" Content="Update to Alignment Model"
                                 Margin="10,5,10,5" IsEnabled="False" Click="Clk_UpdateModel" x:Name="Btn_UpdateFamily"/>
                     </Grid>
                 </Grid>

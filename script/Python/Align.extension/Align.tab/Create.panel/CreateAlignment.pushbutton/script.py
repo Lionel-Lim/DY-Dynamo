@@ -1206,6 +1206,15 @@ class form_window(WPFWindow):
             self.DetailPointTable.ItemsSource = self.DetailPointContents[index]
         except Exception as e:
             debugEdit(self, "{}".format(e))
+
+    def Event_PointListOpened(self, sender, e):
+        nameList = []
+        try:
+            for i in self.GeneralPointContents:
+                nameList.append(i.Name)
+            self.Combo_pointList.ItemsSource = nameList
+        except:
+            debugEdit(self, "{}".format(e))
     
     def Btn_LineIntersection_Checked(self, sender, e):
         self.Btn_SelectIntCurve.IsEnabled = True
@@ -1235,6 +1244,12 @@ class form_window(WPFWindow):
             if self.OffsetValue.Text == "":
                 debugEdit(self, "Offset value is empty")
                 return False
+            if self.Combo_pointList.SelectedItem == None:
+                debugEdit(self, "Select Reference Point to calculate offset.")
+                return False
+            else:
+                refPointName = self.Combo_pointList.SelectedItem
+                debugEdit(self, "Selected Measure Reference : {}".format(refPointName))
             try:
                 offsetValue = float(self.OffsetValue.Text)
                 #Get All Reference Point from Alignment Family
@@ -1245,7 +1260,7 @@ class form_window(WPFWindow):
                 point = []
                 #Get Only Main Points
                 for e in refPoints:
-                    if e.Name.split("/")[1] == "Main":
+                    if e.Name.split("/")[1] == refPointName:
                         point.append(e)
                 #Convert Revit Main Points to Internal Points
                 XY = []
@@ -1274,6 +1289,10 @@ class form_window(WPFWindow):
                     debugEdit(self, "Point Name is not defined.")
                     updatedHorzAlignment = True
                     return False
+                for i in self.GeneralPointContents:
+                    if i.Name == pt_name:
+                        debugEdit(self, "Point Set Name is dulicated.")
+                        return False
                 stations = [float(value[1]) for value in self.PointDic['Main']]
                 SE_Slope = [i.Slope for i in self.SuperElevationContents]
                 SE_Station = [i.Station for i in self.SuperElevationContents]
